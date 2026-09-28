@@ -1,0 +1,67 @@
+@IzTrade.API_HostAddress = http://localhost:5032
+
+### Register New User
+POST {{IzTrade.API_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "trader@iztrade.com",
+  "password": "Password123!"
+}
+
+###
+
+### Login User
+POST {{IzTrade.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "trader@iztrade.com",
+  "password": "Password123!"
+}
+
+###
+
+### Get User Wallet Balance
+GET {{IzTrade.API_HostAddress}}/api/wallet/user/1
+Accept: application/json
+
+###
+
+### Place Buy Order (Pending Check)
+POST {{IzTrade.API_HostAddress}}/api/order/place
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "symbol": "BTCUSDT",
+  "orderType": "BUY",
+  "price": 50000.0,
+  "quantity": 0.01
+}
+
+###
+
+### Get Order Book Depth
+GET {{IzTrade.API_HostAddress}}/api/order/orderbook/BTCUSDT
+Accept: application/json
+
+###
+
+### Place Sell Order (Matching Engine Trigger)
+POST {{IzTrade.API_HostAddress}}/api/order/place
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "symbol": "BTCUSDT",
+  "orderType": "SELL",
+  "price": 50000.0,
+  "quantity": 0.01
+}
+
+###
+
+### Get User Orders History
+GET {{IzTrade.API_HostAddress}}/api/order/user/1
+Accept: application/json
