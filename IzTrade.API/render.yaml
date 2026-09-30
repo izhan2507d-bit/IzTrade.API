@@ -1,0 +1,7 @@
+﻿services:
+  - type: web
+    name: iztrade-api
+    env: dotnet
+    buildCommand: dotnet publish -c Release -o out
+    startCommand: dotnet out/IzTrade.API.dll
+    plan: free

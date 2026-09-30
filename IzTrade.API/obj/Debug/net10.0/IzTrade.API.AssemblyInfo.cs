@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IzTrade.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+388b9e21c2078a67750886b80e61ddc2b7448136")]
 [assembly: System.Reflection.AssemblyProductAttribute("IzTrade.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IzTrade.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
