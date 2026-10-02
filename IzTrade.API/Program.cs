@@ -23,7 +23,6 @@ builder.Services.AddCors(options =>
 });
 
 // Database Context Registration
-// Gets connection string from appsettings.json or Environment Variable (Render Cloud DB)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
@@ -35,16 +34,19 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     }
 });
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// Swagger / OpenAPI Services
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Enable Swagger in Production (Railway) so you can test endpoints directly
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.MapOpenApi();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "IzTrade API v1");
+    c.RoutePrefix = "swagger"; // Available at /swagger
+});
 
 // Enable CORS
 app.UseCors("AllowAll");
