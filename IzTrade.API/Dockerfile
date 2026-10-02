@@ -1,19 +1,20 @@
-﻿FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy all files and restore dependencies
+# Copy all files
 COPY . .
-RUN dotnet restore
 
-# Build and publish
-RUN dotnet publish -c Release -o /app/publish
+# Explicitly mention the .csproj file
+RUN dotnet restore "IzTrade.API.csproj"
+
+# Build and publish explicitly pointing to the project
+RUN dotnet publish "IzTrade.API.csproj" -c Release -o /app/publish
 
 # Final runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 
-# Railway sets PORT dynamically
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
