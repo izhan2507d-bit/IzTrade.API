@@ -86,7 +86,10 @@ function App() {
     const fetchUserData = useCallback(async () => {
         if (!currentUser) return;
         try {
-            const userId = parseInt(currentUser.id || currentUser.userId, 10);
+            const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id;
+            const userId = parseInt(rawUserId, 10);
+            if (isNaN(userId)) return;
+
             const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${userId}`);
             if (walletRes.data) setWallets(walletRes.data);
 
@@ -163,14 +166,18 @@ function App() {
         }
 
         setStatusMsg('Processing Order...');
-        const parsedPrice = parseFloat(price);
-        const parsedQuantity = parseFloat(quantity);
-        const parsedUserId = parseInt(currentUser.id || currentUser.userId, 10);
 
-        if (isNaN(parsedUserId)) {
-            setStatusMsg('Error: Invalid User ID. Please login again.');
+        const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id;
+        const parsedUserId = parseInt(rawUserId, 10);
+
+        if (isNaN(parsedUserId) || parsedUserId <= 0) {
+            setStatusMsg('Error: Invalid User ID. Please Logout & Login again.');
+            console.error("Invalid UserId raw value:", rawUserId);
             return;
         }
+
+        const parsedPrice = parseFloat(price);
+        const parsedQuantity = parseFloat(quantity);
 
         if (isNaN(parsedPrice) || parsedPrice <= 0 || isNaN(parsedQuantity) || parsedQuantity <= 0) {
             setStatusMsg('Error: Enter valid price & quantity');
@@ -179,25 +186,19 @@ function App() {
 
         const orderData = {
             userId: parsedUserId,
-            symbol: symbol || "BTCUSDT",
+            symbol: String(symbol || "BTCUSDT"),
             price: parsedPrice,
             quantity: parsedQuantity,
-            side: orderType.toUpperCase(),
+            side: String(orderType).toUpperCase(),
             orderType: "LIMIT"
         };
 
-        // Backend wrapper format solution ({ dto: ... } fallback wrapper)
         try {
-            let response;
-            try {
-                response = await axios.post(`${API_BASE_URL}/api/Order/place`, { dto: orderData });
-            } catch (err) {
-                if (err.response && err.response.status === 400) {
-                    response = await axios.post(`${API_BASE_URL}/api/Order/place`, orderData);
-                } else {
-                    throw err;
+            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, orderData, {
+                headers: {
+                    'Content-Type': 'application/json'
                 }
-            }
+            });
 
             setStatusMsg(response.data?.message || 'Order placed successfully!');
             fetchUserData();
@@ -222,7 +223,8 @@ function App() {
         e.preventDefault();
         if (!currentUser) return;
         try {
-            const userId = parseInt(currentUser.id || currentUser.userId, 10);
+            const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id;
+            const userId = parseInt(rawUserId, 10);
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, {
                 userId: userId,
                 currency: 'USDT',
@@ -241,7 +243,8 @@ function App() {
         e.preventDefault();
         if (!currentUser) return;
         try {
-            const userId = parseInt(currentUser.id || currentUser.userId, 10);
+            const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id;
+            const userId = parseInt(rawUserId, 10);
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, {
                 userId: userId,
                 currency: 'USDT',
@@ -309,7 +312,7 @@ function App() {
                 borderBottom: '1px solid #2b313a',
                 padding: '8px 12px',
                 display: 'flex',
-                justify: 'space-between',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 boxSizing: 'border-box'
             }}>
