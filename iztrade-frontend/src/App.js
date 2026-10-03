@@ -184,7 +184,7 @@ function App() {
             return;
         }
 
-        const orderData = {
+        const basePayload = {
             userId: parsedUserId,
             symbol: String(symbol || "BTCUSDT"),
             price: parsedPrice,
@@ -194,10 +194,9 @@ function App() {
         };
 
         try {
-            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, orderData, {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            // First attempt with direct payload
+            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, basePayload, {
+                headers: { 'Content-Type': 'application/json' }
             });
 
             setStatusMsg(response.data?.message || 'Order placed successfully!');
@@ -205,6 +204,26 @@ function App() {
             fetchOrderBook();
         } catch (error) {
             console.error("Order error:", error);
+            
+            // Retry automatically with `{ dto: ... }` if backend requires wrapper
+            const isDtoError = error.response && error.response.data && 
+                (JSON.stringify(error.response.data).includes('dto field is required') || 
+                 JSON.stringify(error.response.data).includes('The dto field is required'));
+
+            if (isDtoError) {
+                try {
+                    const retryRes = await axios.post(`${API_BASE_URL}/api/Order/place`, { dto: basePayload }, {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    setStatusMsg(retryRes.data?.message || 'Order placed successfully!');
+                    fetchUserData();
+                    fetchOrderBook();
+                    return;
+                } catch (retryErr) {
+                    console.error("Retry error:", retryErr);
+                }
+            }
+
             if (error.response && error.response.data) {
                 const errorData = error.response.data;
                 let errorMsg = 'Validation Error';
