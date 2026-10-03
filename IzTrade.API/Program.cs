@@ -4,13 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 1. Add Controllers
 builder.Services.AddControllers();
 
-// Add SignalR for Real-time WebSockets
+// 2. Add SignalR for Real-time WebSockets
 builder.Services.AddSignalR();
 
-// Configure CORS for Frontend Integration (Supports Vercel & All Origins)
+// 3. Configure CORS for Frontend Integration (Supports Vercel & All Origins)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -22,7 +22,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Database Context Registration (AppDbContext)
+// 4. Database Context Registration (AppDbContext)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
@@ -34,42 +34,19 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     }
 });
 
-// Swagger / OpenAPI Services (Safe Fallback / Minimal OpenAPI configuration)
-builder.Services.AddEndpointsApiExplorer();
-try
-{
-    builder.Services.AddSwaggerGen();
-}
-catch
-{
-    // Ignores missing package references gracefully during build
-}
-
 var app = builder.Build();
 
-// Enable Swagger in Production (Railway) safely
-try
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "IzTrade API v1");
-        c.RoutePrefix = string.Empty;
-    });
-}
-catch
-{
-    // Continuous execution even if Swagger UI package is absent in csproj
-}
+// 5. Root URL Test Route (Backend Online Status Check Karne Ke Liye)
+app.MapGet("/", () => Results.Json(new { status = "Online", message = "IzTrade API Backend is running successfully!" }));
 
-// Enable CORS
+// 6. Enable CORS
 app.UseCors("AllowAll");
 
 app.UseAuthorization();
 
 app.MapControllers();
 
-// Map SignalR Hub Endpoint
+// 7. Map SignalR Hub Endpoint
 app.MapHub<MarketHub>("/hubs/market");
 
 app.Run();
