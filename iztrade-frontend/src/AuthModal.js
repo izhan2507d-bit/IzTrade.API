@@ -30,11 +30,11 @@ function AuthModal({ onLoginSuccess, onClose }) {
         const endpoint = isRegister ? 'register' : 'login';
 
         try {
-            // 5 second timeout added so it never freezes infinitely
-            const response = await axios.post(`http://localhost:5032/api/Auth/${endpoint}`, {
+            // Live Railway Backend URL Updated Here
+            const response = await axios.post(`https://iztrade-production.up.railway.app/api/Auth/${endpoint}`, {
                 email: email,
                 password: password
-            }, { timeout: 5000 });
+            }, { timeout: 10000 });
 
             if (response.data && response.data.user) {
                 setSuccessMessage(isRegister ? 'Account created! Logging in...' : 'Login successful!');
@@ -75,7 +75,6 @@ function AuthModal({ onLoginSuccess, onClose }) {
                         <span style={{ fontWeight: 'bold', fontSize: '18px', letterSpacing: '0.5px' }}>IzTrade Pro</span>
                     </div>
 
-                    {/* Fixed explicit type="button" for Close */}
                     <button
                         type="button"
                         onClick={onClose}
