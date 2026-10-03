@@ -1,38 +1,104 @@
-.App {
-  text-align: center;
+/* Reset & Base Styling */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+body {
+  background-color: #0b0e11;
+  color: #eaecef;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  overflow-x: hidden;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+/* Header Styling - Overlapping Fix */
+header, .header-bar, .navbar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  background-color: #181a20 !important;
+  padding: 8px 16px !important;
+  border-bottom: 1px solid #2b313a !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  gap: 12px;
+}
+
+/* User Status Bar & Buttons */
+.user-info, .status-bar, .user-status-container {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  max-width: 100% !important;
+}
+
+/* Desktop Main Grid Layout */
+.trading-container, .main-layout, .dashboard-container {
+  display: grid !important;
+  grid-template-columns: 1fr 300px 320px !important; /* Chart | Orderbook | Form */
+  height: calc(100vh - 56px) !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Desktop Panels */
+.chart-section, .chart-container {
+  border-right: 1px solid #2b313a;
+  height: 100%;
+  width: 100%;
+}
+
+.orderbook-section, .order-book {
+  border-right: 1px solid #2b313a;
+  background-color: #12161c;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.trade-form-section, .order-form {
+  background-color: #181a20;
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* MOBILE & TABLET RESPONSIVE FIX (Binance Pro Style) */
+@media screen and (max-width: 1024px) {
+  .trading-container, .main-layout, .dashboard-container {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    overflow-y: auto !important;
   }
-}
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+  .chart-section, .chart-container {
+    height: 420px !important;
+    border-right: none !important;
+    border-bottom: 1px solid #2b313a !important;
   }
-  to {
-    transform: rotate(360deg);
+
+  .orderbook-section, .order-book {
+    height: 360px !important;
+    border-right: none !important;
+    border-bottom: 1px solid #2b313a !important;
+  }
+
+  .trade-form-section, .order-form {
+    height: auto !important;
+    padding: 16px 12px 40px 12px !important;
+  }
+
+  header, .header-bar, .navbar {
+    flex-wrap: wrap !important;
+    height: auto !important;
+    padding: 10px !important;
+  }
+
+  .user-info, .status-bar, .user-status-container {
+    width: 100% !important;
+    justify-content: flex-end !important;
+    margin-top: 6px !important;
   }
 }
