@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-// Environment variable with Railway direct live backend URL fallback
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL || 'https://iztrade-production.up.railway.app';
+// Direct production endpoint fallback
+const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL || 'https://iztrade-production.up.railway.app').replace(/\/$/, '');
 
 function AuthModal({ onLoginSuccess, onClose }) {
     const [isRegister, setIsRegister] = useState(false);
@@ -33,17 +33,19 @@ function AuthModal({ onLoginSuccess, onClose }) {
         const endpoint = isRegister ? 'register' : 'login';
 
         try {
-            const response = await axios.post(`${API_BASE_URL}/api/Auth/${endpoint}`, {
-                email: email,
+            // Updated route to lower-case /api/auth/ for ASP.NET standard route compatibility
+            const response = await axios.post(`${API_BASE_URL}/api/auth/${endpoint}`, {
+                email: email.trim(),
                 password: password
             }, { 
                 timeout: 15000,
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 }
             });
 
-            // Universal user data extraction (handles multiple C# API response formats)
+            // Extract User Data
             let userData = null;
             if (response.data) {
                 if (response.data.user) {
@@ -55,7 +57,6 @@ function AuthModal({ onLoginSuccess, onClose }) {
                 }
             }
 
-            // Fallback object if backend sends non-standard response structure
             if (!userData) {
                 userData = { id: 1, email: email, name: email.split('@')[0] };
             }
@@ -73,7 +74,6 @@ function AuthModal({ onLoginSuccess, onClose }) {
             console.error("Auth System Error:", err);
             
             if (err.response) {
-                // Server responded with an error status (400, 401, 500 etc.)
                 const data = err.response.data;
                 let msg = 'Authentication failed.';
                 
@@ -89,9 +89,9 @@ function AuthModal({ onLoginSuccess, onClose }) {
                 
                 setErrorMessage(msg);
             } else if (err.code === 'ECONNABORTED') {
-                setErrorMessage('Connection timed out. Railway backend is waking up, please try again in 5 seconds.');
+                setErrorMessage('Connection timed out. Railway backend is waking up, please try again.');
             } else {
-                setErrorMessage('Network error or CORS issue. Please try again or use Guest Mode.');
+                setErrorMessage('Backend server offline or not responding. Check connection.');
             }
         } finally {
             setLoading(false);
