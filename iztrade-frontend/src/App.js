@@ -50,7 +50,7 @@ function App() {
     const [activeModal, setActiveModal] = useState(null);
 
     // Navigation & Mobile Navigation
-    const [activeMobileTab, setActiveMobileTab] = useState('chart'); // 'chart', 'book', 'trade'
+    const [activeMobileTab, setActiveMobileTab] = useState('chart');
     const [withdrawMethod, setWithdrawMethod] = useState('JAZZCASH');
     const [accountTitle, setAccountTitle] = useState('');
     const [accountNumber, setAccountNumber] = useState('');
@@ -86,7 +86,8 @@ function App() {
     const fetchUserData = useCallback(async () => {
         if (!currentUser) return;
         try {
-            const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${currentUser.id}`);
+            const userId = parseInt(currentUser.id || currentUser.userId, 10);
+            const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${userId}`);
             if (walletRes.data) setWallets(walletRes.data);
 
             const adminRes = await axios.get(`${API_BASE_URL}/api/Wallet/admin/commissions`);
@@ -164,37 +165,55 @@ function App() {
         setStatusMsg('Processing Order...');
         const parsedPrice = parseFloat(price);
         const parsedQuantity = parseFloat(quantity);
+        const parsedUserId = parseInt(currentUser.id || currentUser.userId, 10);
+
+        if (isNaN(parsedUserId)) {
+            setStatusMsg('Error: Invalid User ID. Please login again.');
+            return;
+        }
 
         if (isNaN(parsedPrice) || parsedPrice <= 0 || isNaN(parsedQuantity) || parsedQuantity <= 0) {
             setStatusMsg('Error: Enter valid price & quantity');
             return;
         }
 
-        const payload = {
-            userId: parseInt(currentUser.id, 10),
+        const orderData = {
+            userId: parsedUserId,
             symbol: symbol || "BTCUSDT",
             price: parsedPrice,
             quantity: parsedQuantity,
-            side: orderType,
-            orderType: "LIMIT",
-            type: orderType
+            side: orderType.toUpperCase(),
+            orderType: "LIMIT"
         };
 
+        // Backend wrapper format solution ({ dto: ... } fallback wrapper)
         try {
-            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, payload);
+            let response;
+            try {
+                response = await axios.post(`${API_BASE_URL}/api/Order/place`, { dto: orderData });
+            } catch (err) {
+                if (err.response && err.response.status === 400) {
+                    response = await axios.post(`${API_BASE_URL}/api/Order/place`, orderData);
+                } else {
+                    throw err;
+                }
+            }
+
             setStatusMsg(response.data?.message || 'Order placed successfully!');
             fetchUserData();
             fetchOrderBook();
         } catch (error) {
+            console.error("Order error:", error);
             if (error.response && error.response.data) {
                 const errorData = error.response.data;
                 let errorMsg = 'Validation Error';
                 if (typeof errorData === 'string') errorMsg = errorData;
                 else if (errorData.errors) errorMsg = Object.values(errorData.errors).flat().join(', ');
                 else if (errorData.message) errorMsg = errorData.message;
+                else if (errorData.title) errorMsg = errorData.title;
                 setStatusMsg(`Error: ${errorMsg}`);
             } else {
-                setStatusMsg('Order placed successfully (Pro Mode)');
+                setStatusMsg('Failed to place order. Check connection.');
             }
         }
     };
@@ -203,8 +222,9 @@ function App() {
         e.preventDefault();
         if (!currentUser) return;
         try {
+            const userId = parseInt(currentUser.id || currentUser.userId, 10);
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, {
-                userId: currentUser.id,
+                userId: userId,
                 currency: 'USDT',
                 amount: parseFloat(depositAmount)
             });
@@ -213,7 +233,7 @@ function App() {
             setActiveModal(null);
             fetchUserData();
         } catch (err) {
-            alert(err.response?.data || 'Deposit failed');
+            alert(err.response?.data?.message || err.response?.data || 'Deposit failed');
         }
     };
 
@@ -221,8 +241,9 @@ function App() {
         e.preventDefault();
         if (!currentUser) return;
         try {
+            const userId = parseInt(currentUser.id || currentUser.userId, 10);
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, {
-                userId: currentUser.id,
+                userId: userId,
                 currency: 'USDT',
                 amount: parseFloat(withdrawAmount),
                 method: withdrawMethod,
@@ -238,7 +259,7 @@ function App() {
             setActiveModal(null);
             fetchUserData();
         } catch (err) {
-            alert(err.response?.data || 'Withdrawal failed');
+            alert(err.response?.data?.message || err.response?.data || 'Withdrawal failed');
         }
     };
 
@@ -288,7 +309,7 @@ function App() {
                 borderBottom: '1px solid #2b313a',
                 padding: '8px 12px',
                 display: 'flex',
-                justifyContent: 'space-between',
+                justify: 'space-between',
                 alignItems: 'center',
                 boxSizing: 'border-box'
             }}>
@@ -318,7 +339,7 @@ function App() {
                 </div>
             </header>
 
-            {/* Mobile Tab Header (Binance Style) */}
+            {/* Mobile Tab Header */}
             {isMobile && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', backgroundColor: '#181a20', borderBottom: '1px solid #2b313a', textAlign: 'center' }}>
                     <button onClick={() => setActiveMobileTab('chart')} style={{ padding: '10px', background: 'transparent', border: 'none', color: activeMobileTab === 'chart' ? '#f0b90b' : '#848e9c', borderBottom: activeMobileTab === 'chart' ? '2px solid #f0b90b' : 'none', fontWeight: 'bold', fontSize: '12px' }}>Chart</button>
@@ -424,7 +445,7 @@ function App() {
                 )}
             </div>
 
-            {/* Mobile Bottom Quick Action Bar (Binance App Style) */}
+            {/* Mobile Bottom Quick Action Bar */}
             {isMobile && activeMobileTab !== 'trade' && (
                 <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: '#181a20', borderTop: '1px solid #2b313a', padding: '8px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', zIndex: 99 }}>
                     <button onClick={() => { setOrderType('BUY'); setActiveMobileTab('trade'); }} style={{ padding: '12px', backgroundColor: '#0ecb81', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '14px' }}>BUY BTC</button>
