@@ -22,7 +22,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Database Context Registration
+// Database Context Registration (AppDbContext)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
@@ -40,12 +40,12 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Enable Swagger in Production (Railway) so you can test endpoints directly
+// Enable Swagger in Production (Railway)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "IzTrade API v1");
-    c.RoutePrefix = "swagger"; // Available at /swagger
+    c.RoutePrefix = string.Empty; // Root URL '/' kholne par hi Swagger khul jayega
 });
 
 // Enable CORS
