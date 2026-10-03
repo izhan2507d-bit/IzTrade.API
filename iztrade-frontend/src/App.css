@@ -5,14 +5,16 @@
   padding: 0;
 }
 
-body {
+html, body, #root {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden !important; /* Horizontal Scrollbar Completely Dead */
   background-color: #0b0e11;
   color: #eaecef;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  overflow-x: hidden;
 }
 
-/* Header Styling - Overlapping Fix */
+/* Header Styling - Overlapping & Scrollbar Fix */
 header, .header-bar, .navbar {
   display: flex !important;
   justify-content: space-between !important;
@@ -21,17 +23,20 @@ header, .header-bar, .navbar {
   padding: 8px 16px !important;
   border-bottom: 1px solid #2b313a !important;
   width: 100% !important;
+  max-width: 100vw !important;
   box-sizing: border-box !important;
+  overflow-x: hidden !important;
   gap: 12px;
 }
 
-/* User Status Bar & Buttons */
+/* User Status Bar & Buttons Fix */
 .user-info, .status-bar, .user-status-container {
   display: flex !important;
   align-items: center !important;
-  gap: 10px !important;
-  flex-wrap: wrap !important;
+  gap: 8px !important;
+  flex-wrap: nowrap !important; /* Items ek doosre ke oopar na charhein */
   max-width: 100% !important;
+  overflow: hidden !important;
 }
 
 /* Desktop Main Grid Layout */
@@ -40,6 +45,7 @@ header, .header-bar, .navbar {
   grid-template-columns: 1fr 300px 320px !important; /* Chart | Orderbook | Form */
   height: calc(100vh - 56px) !important;
   width: 100% !important;
+  max-width: 100vw !important;
   overflow: hidden !important;
 }
 
@@ -98,7 +104,7 @@ header, .header-bar, .navbar {
 
   .user-info, .status-bar, .user-status-container {
     width: 100% !important;
-    justify-content: flex-end !important;
+    justify-content: flex-between !important;
     margin-top: 6px !important;
   }
 }
