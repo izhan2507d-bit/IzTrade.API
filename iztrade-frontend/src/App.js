@@ -4,7 +4,7 @@ import axios from 'axios';
 import AuthModal from './AuthModal';
 
 const API_BASE_URL = 'https://iztrade-production.up.railway.app';
-
+// trigger build
 // Responsive Logo Component
 const Logo = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
