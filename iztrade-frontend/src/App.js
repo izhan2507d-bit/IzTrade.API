@@ -65,6 +65,14 @@ function App() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Helper to extract valid integer UserId safely
+    const getValidUserId = useCallback(() => {
+        if (!currentUser) return null;
+        const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id || currentUser.Id;
+        const parsed = parseInt(rawUserId, 10);
+        return (!isNaN(parsed) && parsed > 0) ? parsed : null;
+    }, [currentUser]);
+
     const getItemQty = (item) => {
         if (!item) return 0;
         if (typeof item === 'number') return item;
@@ -84,12 +92,10 @@ function App() {
     };
 
     const fetchUserData = useCallback(async () => {
-        if (!currentUser) return;
-        try {
-            const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id;
-            const userId = parseInt(rawUserId, 10);
-            if (isNaN(userId)) return;
+        const userId = getValidUserId();
+        if (!userId) return;
 
+        try {
             const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${userId}`);
             if (walletRes.data) setWallets(walletRes.data);
 
@@ -98,7 +104,7 @@ function App() {
         } catch (err) {
             console.error("Wallet Fetch Error:", err);
         }
-    }, [currentUser]);
+    }, [getValidUserId]);
 
     const fetchOrderBook = useCallback(async () => {
         try {
@@ -156,6 +162,7 @@ function App() {
         localStorage.removeItem('user');
         setCurrentUser(null);
         setWallets([]);
+        setStatusMsg('');
     };
 
     const handlePlaceOrder = async (e) => {
@@ -167,12 +174,9 @@ function App() {
 
         setStatusMsg('Processing Order...');
 
-        const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id;
-        const parsedUserId = parseInt(rawUserId, 10);
-
-        if (isNaN(parsedUserId) || parsedUserId <= 0) {
-            setStatusMsg('Error: Invalid User ID. Please Logout & Login again.');
-            console.error("Invalid UserId raw value:", rawUserId);
+        const userId = getValidUserId();
+        if (!userId) {
+            setStatusMsg('Error: Invalid session. Please Logout and Login again.');
             return;
         }
 
@@ -184,8 +188,8 @@ function App() {
             return;
         }
 
-        const basePayload = {
-            userId: parsedUserId,
+        const orderData = {
+            userId: userId,
             symbol: String(symbol || "BTCUSDT"),
             price: parsedPrice,
             quantity: parsedQuantity,
@@ -193,9 +197,11 @@ function App() {
             orderType: "LIMIT"
         };
 
+        // Standard Payload structured exactly as expected by ASP.NET Controller ([FromBody] PlaceOrderDto dto)
+        const dtoPayload = { dto: orderData };
+
         try {
-            // First attempt with direct payload
-            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, basePayload, {
+            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, dtoPayload, {
                 headers: { 'Content-Type': 'application/json' }
             });
 
@@ -203,47 +209,37 @@ function App() {
             fetchUserData();
             fetchOrderBook();
         } catch (error) {
-            console.error("Order error:", error);
-            
-            // Retry automatically with `{ dto: ... }` if backend requires wrapper
-            const isDtoError = error.response && error.response.data && 
-                (JSON.stringify(error.response.data).includes('dto field is required') || 
-                 JSON.stringify(error.response.data).includes('The dto field is required'));
+            console.error("Order primary payload failed, retrying flat payload:", error);
 
-            if (isDtoError) {
-                try {
-                    const retryRes = await axios.post(`${API_BASE_URL}/api/Order/place`, { dto: basePayload }, {
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    setStatusMsg(retryRes.data?.message || 'Order placed successfully!');
-                    fetchUserData();
-                    fetchOrderBook();
-                    return;
-                } catch (retryErr) {
-                    console.error("Retry error:", retryErr);
-                }
-            }
-
-            if (error.response && error.response.data) {
-                const errorData = error.response.data;
+            // Automatic Fallback: Try flat payload if backend accepts un-wrapped DTO
+            try {
+                const flatResponse = await axios.post(`${API_BASE_URL}/api/Order/place`, orderData, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                setStatusMsg(flatResponse.data?.message || 'Order placed successfully!');
+                fetchUserData();
+                fetchOrderBook();
+                return;
+            } catch (flatErr) {
+                console.error("Flat payload retry failed:", flatErr);
+                const errorData = flatErr.response?.data || error.response?.data;
                 let errorMsg = 'Validation Error';
                 if (typeof errorData === 'string') errorMsg = errorData;
-                else if (errorData.errors) errorMsg = Object.values(errorData.errors).flat().join(', ');
-                else if (errorData.message) errorMsg = errorData.message;
-                else if (errorData.title) errorMsg = errorData.title;
+                else if (errorData?.errors) errorMsg = Object.values(errorData.errors).flat().join(', ');
+                else if (errorData?.message) errorMsg = errorData.message;
+                else if (errorData?.title) errorMsg = errorData.title;
+
                 setStatusMsg(`Error: ${errorMsg}`);
-            } else {
-                setStatusMsg('Failed to place order. Check connection.');
             }
         }
     };
 
     const handleDeposit = async (e) => {
         e.preventDefault();
-        if (!currentUser) return;
+        const userId = getValidUserId();
+        if (!userId) return;
+
         try {
-            const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id;
-            const userId = parseInt(rawUserId, 10);
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, {
                 userId: userId,
                 currency: 'USDT',
@@ -260,10 +256,10 @@ function App() {
 
     const handleWithdraw = async (e) => {
         e.preventDefault();
-        if (!currentUser) return;
+        const userId = getValidUserId();
+        if (!userId) return;
+
         try {
-            const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id;
-            const userId = parseInt(rawUserId, 10);
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, {
                 userId: userId,
                 currency: 'USDT',
@@ -331,7 +327,7 @@ function App() {
                 borderBottom: '1px solid #2b313a',
                 padding: '8px 12px',
                 display: 'flex',
-                justifyContent: 'space-between',
+                justify: 'space-between',
                 alignItems: 'center',
                 boxSizing: 'border-box'
             }}>
