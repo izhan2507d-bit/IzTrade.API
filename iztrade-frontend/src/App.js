@@ -3,7 +3,7 @@ import * as signalR from '@microsoft/signalr';
 import axios from 'axios';
 import AuthModal from './AuthModal';
 
-const API_BASE_URL = 'http://localhost:5032';
+const API_BASE_URL = 'https://iztrade-production.up.railway.app';
 
 // Responsive Logo Component
 const Logo = () => (
