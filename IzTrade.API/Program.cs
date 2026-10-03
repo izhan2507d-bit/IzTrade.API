@@ -4,25 +4,22 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add Controllers
-builder.Services.AddControllers();
-
-// 2. Add SignalR for Real-time WebSockets
-builder.Services.AddSignalR();
-
-// 3. Configure CORS for Frontend Integration (Supports Vercel & All Origins)
+// 1. Configure Open CORS Policy (Must be before AddControllers)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyHeader()
-              .AllowAnyMethod()
-              .SetIsOriginAllowed(_ => true)
-              .AllowCredentials();
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
-// 4. Database Context Registration (AppDbContext)
+// 2. Add Controllers & SignalR
+builder.Services.AddControllers();
+builder.Services.AddSignalR();
+
+// 3. Database Context
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
@@ -36,17 +33,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 var app = builder.Build();
 
-// 5. Root URL Test Route (Backend Online Status Check Karne Ke Liye)
-app.MapGet("/", () => Results.Json(new { status = "Online", message = "IzTrade API Backend is running successfully!" }));
-
-// 6. Enable CORS
+// 4. Apply CORS Middleware First
 app.UseCors("AllowAll");
 
+// 5. Test Route
+app.MapGet("/", () => Results.Json(new { status = "Online", message = "IzTrade API Backend is running successfully!" }));
+
+app.UseRouting();
 app.UseAuthorization();
 
 app.MapControllers();
-
-// 7. Map SignalR Hub Endpoint
 app.MapHub<MarketHub>("/hubs/market");
 
 app.Run();
