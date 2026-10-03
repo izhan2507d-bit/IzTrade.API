@@ -5,10 +5,10 @@ import AuthModal from './AuthModal';
 
 const API_BASE_URL = 'http://localhost:5032';
 
-// Modern Geometric Overlapping IZ Logo Component
+// Responsive Logo Component
 const Logo = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-        <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+        <svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="100" height="100" rx="22" fill="#1E2329" />
             <rect x="22" y="20" width="14" height="60" rx="3" fill="#F0B90B" />
             <path d="M 30 20 L 78 20 L 78 32 L 52 32 Z" fill="#F0B90B" />
@@ -17,10 +17,10 @@ const Logo = () => (
         </svg>
 
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1' }}>
-            <span style={{ fontSize: '18px', fontWeight: '900', color: '#FFFFFF', letterSpacing: '0.5px' }}>
+            <span style={{ fontSize: '16px', fontWeight: '900', color: '#FFFFFF', letterSpacing: '0.5px' }}>
                 IZ<span style={{ color: '#F0B90B' }}>TRADE</span>
             </span>
-            <span style={{ fontSize: '8px', color: '#848E9C', fontWeight: 'bold', letterSpacing: '1.5px', marginTop: '2px' }}>
+            <span style={{ fontSize: '7px', color: '#848E9C', fontWeight: 'bold', letterSpacing: '1px', marginTop: '2px' }}>
                 PRO TERMINAL
             </span>
         </div>
@@ -56,6 +56,15 @@ function App() {
     const [accountNumber, setAccountNumber] = useState('');
     const [bankName, setBankName] = useState('');
 
+    // Responsive State
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     // Flexible extraction helper for Quantity / Size
     const getItemQty = (item) => {
         if (!item) return 0;
@@ -65,7 +74,7 @@ function App() {
         return isNaN(parsed) ? 0 : parsed;
     };
 
-    // Flexible extraction helper for Price (With Auto Scaling Fix)
+    // Flexible extraction helper for Price
     const getItemPrice = (item) => {
         if (!item) return 0;
         if (typeof item === 'number') return item > 200000 ? item / 10 : item;
@@ -269,34 +278,41 @@ function App() {
         <div style={{ backgroundColor: '#0b0e11', color: '#eaecef', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: '12px' }}>
 
             {/* Top Header */}
-            <header style={{ backgroundColor: '#181a20', borderBottom: '1px solid #2b313a', padding: '0 16px', height: '56px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+            <header style={{
+                backgroundColor: '#181a20',
+                borderBottom: '1px solid #2b313a',
+                padding: '8px 12px',
+                minHeight: '56px',
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                gap: isMobile ? '8px' : '0'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', justifyContent: 'space-between' }}>
                     <Logo />
-                    <div style={{ height: '24px', width: '1px', backgroundColor: '#2b313a' }}></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#fff' }}>BTC/USDT</span>
-                        <span style={{ color: '#0ecb81', fontWeight: 'bold', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>BTC/USDT</span>
+                        <span style={{ color: '#0ecb81', fontWeight: 'bold', fontSize: '12px' }}>
                             ${currentDisplayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
-                        <span style={{ color: '#848e9c', fontSize: '11px' }}>24h Vol: <strong style={{ color: '#eaecef' }}>14,295.40 BTC</strong></span>
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: isMobile ? '100%' : 'auto', overflowX: 'auto', paddingBottom: isMobile ? '4px' : '0' }}>
                     {currentUser ? (
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: '#1e2329', padding: '4px 12px', borderRadius: '4px', border: '1px solid #2b313a' }}>
-                            <span style={{ color: '#f0b90b', fontSize: '12px' }}>👤 {currentUser.email}</span>
-                            <div style={{ height: '14px', width: '1px', backgroundColor: '#2b313a' }}></div>
-                            <span>USDT: <strong style={{ color: '#0ecb81' }}>{Number(getUsdtVal()).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#1e2329', padding: '4px 8px', borderRadius: '4px', border: '1px solid #2b313a', flexWrap: isMobile ? 'wrap' : 'nowrap', width: '100%' }}>
+                            <span style={{ color: '#f0b90b', fontSize: '11px', whiteSpace: 'nowrap' }}>👤 {currentUser.email?.split('@')[0]}</span>
+                            <span>USDT: <strong style={{ color: '#0ecb81' }}>{Number(getUsdtVal()).toFixed(2)}</strong></span>
                             <span>BTC: <strong style={{ color: '#f0b90b' }}>{Number(getBtcVal()).toFixed(4)}</strong></span>
 
-                            <button onClick={() => setActiveModal('DEPOSIT')} style={{ padding: '4px 10px', backgroundColor: '#0ecb81', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}>Deposit</button>
-                            <button onClick={() => setActiveModal('WITHDRAW')} style={{ padding: '4px 10px', backgroundColor: '#f6465d', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}>Withdraw</button>
-                            <button onClick={() => setActiveModal('ADMIN')} style={{ padding: '4px 10px', backgroundColor: '#f0b90b', border: 'none', borderRadius: '4px', color: '#000', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}>Owner Profit</button>
-                            <button onClick={handleLogout} style={{ padding: '4px 10px', backgroundColor: '#2b313a', border: 'none', borderRadius: '4px', color: '#848e9c', cursor: 'pointer', fontSize: '11px' }}>Logout</button>
+                            <button onClick={() => setActiveModal('DEPOSIT')} style={{ padding: '4px 8px', backgroundColor: '#0ecb81', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '10px' }}>Deposit</button>
+                            <button onClick={() => setActiveModal('WITHDRAW')} style={{ padding: '4px 8px', backgroundColor: '#f6465d', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '10px' }}>Withdraw</button>
+                            <button onClick={() => setActiveModal('ADMIN')} style={{ padding: '4px 8px', backgroundColor: '#f0b90b', border: 'none', borderRadius: '4px', color: '#000', cursor: 'pointer', fontWeight: 'bold', fontSize: '10px' }}>Profit</button>
+                            <button onClick={handleLogout} style={{ padding: '4px 8px', backgroundColor: '#2b313a', border: 'none', borderRadius: '4px', color: '#848e9c', cursor: 'pointer', fontSize: '10px' }}>Logout</button>
                         </div>
                     ) : (
-                        <button onClick={() => setShowAuthModal(true)} style={{ padding: '6px 16px', backgroundColor: '#f0b90b', color: '#000', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>
+                        <button onClick={() => setShowAuthModal(true)} style={{ padding: '6px 12px', backgroundColor: '#f0b90b', color: '#000', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '11px', width: isMobile ? '100%' : 'auto' }}>
                             Log In / Register
                         </button>
                     )}
@@ -304,19 +320,18 @@ function App() {
             </header>
 
             {/* Trading Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px 300px', height: 'calc(100vh - 56px)', gap: '1px', backgroundColor: '#1e2329' }}>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 300px 280px',
+                minHeight: isMobile ? 'auto' : 'calc(100vh - 56px)',
+                gap: '1px',
+                backgroundColor: '#1e2329'
+            }}>
 
                 {/* Left Chart */}
-                <div style={{ backgroundColor: '#181a20', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ padding: '8px 16px', borderBottom: '1px solid #2b313a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ backgroundColor: '#181a20', display: 'flex', flexDirection: 'column', height: isMobile ? '350px' : 'auto' }}>
+                    <div style={{ padding: '6px 12px', borderBottom: '1px solid #2b313a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#848e9c', fontWeight: '500' }}>TradingView Chart</span>
-                        <div style={{ display: 'flex', gap: '8px', color: '#848e9c', fontSize: '11px' }}>
-                            <span style={{ color: '#f0b90b', cursor: 'pointer' }}>1m</span>
-                            <span style={{ cursor: 'pointer' }}>15m</span>
-                            <span style={{ cursor: 'pointer' }}>1h</span>
-                            <span style={{ cursor: 'pointer' }}>4h</span>
-                            <span style={{ cursor: 'pointer' }}>1D</span>
-                        </div>
                     </div>
                     <div style={{ flex: 1, position: 'relative' }}>
                         <iframe
@@ -329,53 +344,41 @@ function App() {
                     </div>
                 </div>
 
-                {/* Middle Orderbook */}
-                <div style={{ backgroundColor: '#181a20', display: 'flex', flexDirection: 'column', borderLeft: '1px solid #2b313a', borderRight: '1px solid #2b313a' }}>
-                    <div style={{ padding: '8px 12px', borderBottom: '1px solid #2b313a', fontWeight: 'bold', color: '#eaecef' }}>Order Book</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '6px 12px', fontSize: '11px', color: '#848e9c', borderBottom: '1px solid #2b313a' }}>
+                {/* Order Book */}
+                <div style={{ backgroundColor: '#181a20', display: 'flex', flexDirection: 'column', borderLeft: isMobile ? 'none' : '1px solid #2b313a', borderRight: isMobile ? 'none' : '1px solid #2b313a', maxHeight: isMobile ? '300px' : 'none' }}>
+                    <div style={{ padding: '6px 12px', borderBottom: '1px solid #2b313a', fontWeight: 'bold', color: '#eaecef' }}>Order Book</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '4px 12px', fontSize: '10px', color: '#848e9c', borderBottom: '1px solid #2b313a' }}>
                         <span>Price (USDT)</span>
                         <span style={{ textAlign: 'right' }}>Size (BTC)</span>
                     </div>
 
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-                        {/* Asks */}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '4px 0' }}>
-                            {orderBook.asks.length === 0 ? (
-                                <div style={{ color: '#5e6673', textAlign: 'center', padding: '12px' }}>No Sell Orders</div>
-                            ) : (
-                                orderBook.asks.slice(-12).reverse().map((ask, i) => (
-                                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '2px 12px', color: '#f6465d', fontSize: '11px' }}>
-                                        <span style={{ fontWeight: '500' }}>{getItemPrice(ask).toFixed(2)}</span>
-                                        <span style={{ textAlign: 'right', color: '#eaecef' }}>{getItemQty(ask).toFixed(4)}</span>
-                                    </div>
-                                ))
-                            )}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '2px 0' }}>
+                            {orderBook.asks.slice(-6).reverse().map((ask, i) => (
+                                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '2px 12px', color: '#f6465d', fontSize: '11px' }}>
+                                    <span>{getItemPrice(ask).toFixed(2)}</span>
+                                    <span style={{ textAlign: 'right', color: '#eaecef' }}>{getItemQty(ask).toFixed(4)}</span>
+                                </div>
+                            ))}
                         </div>
 
-                        {/* Spread Indicator */}
-                        <div style={{ padding: '8px 12px', backgroundColor: '#0b0e11', borderTop: '1px solid #2b313a', borderBottom: '1px solid #2b313a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ color: '#0ecb81', fontSize: '15px', fontWeight: 'bold' }}>{currentDisplayPrice.toFixed(2)} ↑</span>
-                            <span style={{ color: '#848e9c', fontSize: '11px' }}>Spread: 0.01</span>
+                        <div style={{ padding: '4px 12px', backgroundColor: '#0b0e11', borderTop: '1px solid #2b313a', borderBottom: '1px solid #2b313a', display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#0ecb81', fontSize: '13px', fontWeight: 'bold' }}>{currentDisplayPrice.toFixed(2)} ↑</span>
                         </div>
 
-                        {/* Bids */}
-                        <div style={{ flex: 1, padding: '4px 0' }}>
-                            {orderBook.bids.length === 0 ? (
-                                <div style={{ color: '#5e6673', textAlign: 'center', padding: '12px' }}>No Buy Orders</div>
-                            ) : (
-                                orderBook.bids.slice(0, 12).map((bid, i) => (
-                                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '2px 12px', color: '#0ecb81', fontSize: '11px' }}>
-                                        <span style={{ fontWeight: '500' }}>{getItemPrice(bid).toFixed(2)}</span>
-                                        <span style={{ textAlign: 'right', color: '#eaecef' }}>{getItemQty(bid).toFixed(4)}</span>
-                                    </div>
-                                ))
-                            )}
+                        <div style={{ flex: 1, padding: '2px 0' }}>
+                            {orderBook.bids.slice(0, 6).map((bid, i) => (
+                                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '2px 12px', color: '#0ecb81', fontSize: '11px' }}>
+                                    <span>{getItemPrice(bid).toFixed(2)}</span>
+                                    <span style={{ textAlign: 'right', color: '#eaecef' }}>{getItemQty(bid).toFixed(4)}</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
 
                 {/* Right Form */}
-                <div style={{ backgroundColor: '#181a20', padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ backgroundColor: '#181a20', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', backgroundColor: '#0b0e11', padding: '3px', borderRadius: '4px' }}>
                         <button type="button" onClick={() => setOrderType('BUY')} style={{ padding: '8px', backgroundColor: orderType === 'BUY' ? '#0ecb81' : 'transparent', color: orderType === 'BUY' ? '#fff' : '#848e9c', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>BUY</button>
                         <button type="button" onClick={() => setOrderType('SELL')} style={{ padding: '8px', backgroundColor: orderType === 'SELL' ? '#f6465d' : 'transparent', color: orderType === 'SELL' ? '#fff' : '#848e9c', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>SELL</button>
@@ -388,14 +391,14 @@ function App() {
                         </span>
                     </div>
 
-                    <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div>
                             <span style={{ color: '#848e9c', fontSize: '11px' }}>Price (USDT)</span>
-                            <input type="number" step="any" value={price} onChange={(e) => setPrice(e.target.value)} style={{ ...inputStyle, marginBottom: 0, marginTop: '4px' }} />
+                            <input type="number" step="any" value={price} onChange={(e) => setPrice(e.target.value)} style={{ ...inputStyle, marginBottom: 0, marginTop: '2px' }} />
                         </div>
                         <div>
                             <span style={{ color: '#848e9c', fontSize: '11px' }}>Quantity (BTC)</span>
-                            <input type="number" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} style={{ ...inputStyle, marginBottom: 0, marginTop: '4px' }} />
+                            <input type="number" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} style={{ ...inputStyle, marginBottom: 0, marginTop: '2px' }} />
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
@@ -404,7 +407,7 @@ function App() {
                             ))}
                         </div>
 
-                        <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: orderType === 'BUY' ? '#0ecb81' : '#f6465d', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>
+                        <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: orderType === 'BUY' ? '#0ecb81' : '#f6465d', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px', marginTop: '4px' }}>
                             {orderType} BTC
                         </button>
                     </form>
@@ -415,8 +418,8 @@ function App() {
 
             {/* Modals */}
             {activeModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-                    <div style={{ backgroundColor: '#181a20', padding: '20px', borderRadius: '8px', width: '380px', border: '1px solid #2b313a', position: 'relative' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '16px' }}>
+                    <div style={{ backgroundColor: '#181a20', padding: '20px', borderRadius: '8px', width: '100%', maxWidth: '380px', border: '1px solid #2b313a', position: 'relative' }}>
                         <button onClick={() => setActiveModal(null)} style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: '#848e9c', fontSize: '16px', cursor: 'pointer' }}>✕</button>
 
                         {activeModal === 'DEPOSIT' && (
