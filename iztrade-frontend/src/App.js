@@ -3,29 +3,29 @@ import * as signalR from '@microsoft/signalr';
 import axios from 'axios';
 import AuthModal from './AuthModal';
 
-// Modern Geometric Overlapping IZ Logo Component
-const Logo = () => {
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-            <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="22" fill="#1E2329" />
-                <rect x="22" y="20" width="14" height="60" rx="3" fill="#F0B90B" />
-                <path d="M 30 20 L 78 20 L 78 32 L 52 32 Z" fill="#F0B90B" />
-                <path d="M 78 20 L 40 80 L 28 80 L 66 20 Z" fill="#FFFFFF" />
-                <path d="M 32 68 L 78 68 L 78 80 L 32 80 Z" fill="#F0B90B" />
-            </svg>
+const API_BASE_URL = 'http://localhost:5032';
 
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1' }}>
-                <span style={{ fontSize: '18px', fontWeight: '900', color: '#FFFFFF', letterSpacing: '0.5px' }}>
-                    IZ<span style={{ color: '#F0B90B' }}>TRADE</span>
-                </span>
-                <span style={{ fontSize: '8px', color: '#848E9C', fontWeight: 'bold', letterSpacing: '1.5px', marginTop: '2px' }}>
-                    PRO TERMINAL
-                </span>
-            </div>
+// Modern Geometric Overlapping IZ Logo Component
+const Logo = () => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+        <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="22" fill="#1E2329" />
+            <rect x="22" y="20" width="14" height="60" rx="3" fill="#F0B90B" />
+            <path d="M 30 20 L 78 20 L 78 32 L 52 32 Z" fill="#F0B90B" />
+            <path d="M 78 20 L 40 80 L 28 80 L 66 20 Z" fill="#FFFFFF" />
+            <path d="M 32 68 L 78 68 L 78 80 L 32 80 Z" fill="#F0B90B" />
+        </svg>
+
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1' }}>
+            <span style={{ fontSize: '18px', fontWeight: '900', color: '#FFFFFF', letterSpacing: '0.5px' }}>
+                IZ<span style={{ color: '#F0B90B' }}>TRADE</span>
+            </span>
+            <span style={{ fontSize: '8px', color: '#848E9C', fontWeight: 'bold', letterSpacing: '1.5px', marginTop: '2px' }}>
+                PRO TERMINAL
+            </span>
         </div>
-    );
-};
+    </div>
+);
 
 function App() {
     // Authentication States
@@ -80,10 +80,10 @@ function App() {
     const fetchUserData = useCallback(async () => {
         if (!currentUser) return;
         try {
-            const walletRes = await axios.get(`http://localhost:5032/api/Wallet/user/${currentUser.id}`);
+            const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${currentUser.id}`);
             if (walletRes.data) setWallets(walletRes.data);
 
-            const adminRes = await axios.get('http://localhost:5032/api/Wallet/admin/commissions');
+            const adminRes = await axios.get(`${API_BASE_URL}/api/Wallet/admin/commissions`);
             if (adminRes.data) setAdminCommissions(adminRes.data);
         } catch (err) {
             console.error("Wallet Fetch Error:", err);
@@ -92,7 +92,7 @@ function App() {
 
     const fetchOrderBook = useCallback(async () => {
         try {
-            const res = await axios.get(`http://localhost:5032/api/Order/orderbook/${symbol}`);
+            const res = await axios.get(`${API_BASE_URL}/api/Order/orderbook/${symbol}`);
             if (res.data) {
                 setOrderBook({
                     bids: res.data.bids || res.data.Bids || [],
@@ -115,7 +115,7 @@ function App() {
         let isMounted = true;
 
         const connection = new signalR.HubConnectionBuilder()
-            .withUrl("http://localhost:5032/hubs/market", {
+            .withUrl(`${API_BASE_URL}/hubs/market`, {
                 skipNegotiation: false,
                 transport: signalR.HttpTransportType.WebSockets
             })
@@ -163,7 +163,7 @@ function App() {
         setStatusMsg('Processing Order...');
 
         try {
-            const response = await axios.post('http://localhost:5032/api/Order/place', {
+            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, {
                 userId: parseInt(currentUser.id, 10),
                 symbol: symbol || "BTCUSDT",
                 price: parseFloat(price),
@@ -190,7 +190,7 @@ function App() {
         e.preventDefault();
         if (!currentUser) return;
         try {
-            const res = await axios.post('http://localhost:5032/api/Wallet/deposit', {
+            const res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, {
                 userId: currentUser.id,
                 currency: 'USDT',
                 amount: parseFloat(depositAmount)
@@ -208,14 +208,14 @@ function App() {
         e.preventDefault();
         if (!currentUser) return;
         try {
-            const res = await axios.post('http://localhost:5032/api/Wallet/withdraw', {
+            const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, {
                 userId: currentUser.id,
                 currency: 'USDT',
                 amount: parseFloat(withdrawAmount),
                 method: withdrawMethod,
                 accountTitle: accountTitle,
                 accountNumber: accountNumber,
-                bankName: bankName
+                bankName: withdrawMethod === 'BANK' ? bankName : undefined
             });
             alert(res.data.message || `Withdrawal request submitted via ${withdrawMethod}`);
             setWithdrawAmount('');
@@ -251,9 +251,19 @@ function App() {
         }
     };
 
-    // Calculate Top Bid Price correctly
     const topBidRaw = orderBook.bids.length > 0 ? getItemPrice(orderBook.bids[0]) : 83860.01;
     const currentDisplayPrice = topBidRaw > 0 ? topBidRaw : 83860.01;
+
+    const inputStyle = {
+        width: '100%',
+        padding: '8px',
+        backgroundColor: '#2b313a',
+        border: '1px solid #474d57',
+        color: '#fff',
+        borderRadius: '4px',
+        marginBottom: '10px',
+        boxSizing: 'border-box'
+    };
 
     return (
         <div style={{ backgroundColor: '#0b0e11', color: '#eaecef', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: '12px' }}>
@@ -381,11 +391,11 @@ function App() {
                     <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div>
                             <span style={{ color: '#848e9c', fontSize: '11px' }}>Price (USDT)</span>
-                            <input type="number" step="any" value={price} onChange={(e) => setPrice(e.target.value)} style={{ width: '100%', padding: '8px', backgroundColor: '#2b313a', border: '1px solid #474d57', color: '#fff', borderRadius: '4px', marginTop: '4px', boxSizing: 'border-box' }} />
+                            <input type="number" step="any" value={price} onChange={(e) => setPrice(e.target.value)} style={{ ...inputStyle, marginBottom: 0, marginTop: '4px' }} />
                         </div>
                         <div>
                             <span style={{ color: '#848e9c', fontSize: '11px' }}>Quantity (BTC)</span>
-                            <input type="number" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} style={{ width: '100%', padding: '8px', backgroundColor: '#2b313a', border: '1px solid #474d57', color: '#fff', borderRadius: '4px', marginTop: '4px', boxSizing: 'border-box' }} />
+                            <input type="number" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} style={{ ...inputStyle, marginBottom: 0, marginTop: '4px' }} />
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
@@ -412,7 +422,7 @@ function App() {
                         {activeModal === 'DEPOSIT' && (
                             <form onSubmit={handleDeposit}>
                                 <h3 style={{ marginTop: 0, color: '#0ecb81' }}>Deposit USDT</h3>
-                                <input type="number" step="any" placeholder="Amount" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} required style={{ width: '100%', padding: '10px', backgroundColor: '#2b313a', border: '1px solid #474d57', color: '#fff', borderRadius: '4px', marginBottom: '15px', boxSizing: 'border-box' }} />
+                                <input type="number" step="any" placeholder="Amount" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} required style={inputStyle} />
                                 <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#0ecb81', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Confirm Deposit</button>
                             </form>
                         )}
@@ -420,12 +430,17 @@ function App() {
                         {activeModal === 'WITHDRAW' && (
                             <form onSubmit={handleWithdraw}>
                                 <h3 style={{ marginTop: 0, color: '#f6465d' }}>Withdraw USDT</h3>
-                                <select value={withdrawMethod} onChange={(e) => setWithdrawMethod(e.target.value)} style={{ width: '100%', padding: '8px', backgroundColor: '#2b313a', border: '1px solid #474d57', color: '#fff', borderRadius: '4px', marginBottom: '10px', boxSizing: 'border-box' }}>
+                                <select value={withdrawMethod} onChange={(e) => setWithdrawMethod(e.target.value)} style={inputStyle}>
                                     <option value="JAZZCASH">JazzCash (P2P)</option>
                                     <option value="EASYPAISA">EasyPaisa (P2P)</option>
                                     <option value="BANK">Local Bank Transfer</option>
                                 </select>
-                                <input type="number" step="any" placeholder="Amount" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} required style={{ width: '100%', padding: '8px', backgroundColor: '#2b313a', border: '1px solid #474d57', color: '#fff', borderRadius: '4px', marginBottom: '15px', boxSizing: 'border-box' }} />
+                                <input type="number" step="any" placeholder="Amount (USDT)" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} required style={inputStyle} />
+                                <input type="text" placeholder="Account Title" value={accountTitle} onChange={(e) => setAccountTitle(e.target.value)} required style={inputStyle} />
+                                <input type="text" placeholder="Account Number / Mobile Number" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} required style={inputStyle} />
+                                {withdrawMethod === 'BANK' && (
+                                    <input type="text" placeholder="Bank Name" value={bankName} onChange={(e) => setBankName(e.target.value)} required style={inputStyle} />
+                                )}
                                 <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#f6465d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Confirm Withdrawal</button>
                             </form>
                         )}
