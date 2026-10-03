@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+// Environment variable with Railway direct live backend URL fallback
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL || 'https://iztrade-production.up.railway.app';
+
 function AuthModal({ onLoginSuccess, onClose }) {
     const [isRegister, setIsRegister] = useState(false);
     const [email, setEmail] = useState('');
@@ -15,7 +18,7 @@ function AuthModal({ onLoginSuccess, onClose }) {
         setErrorMessage('');
         setSuccessMessage('');
 
-        // Basic Validation Check
+        // Basic Email & Password Validation
         if (!email.includes('@') || !email.includes('.')) {
             setErrorMessage('Please enter a valid email address (e.g. name@gmail.com)');
             return;
@@ -30,30 +33,68 @@ function AuthModal({ onLoginSuccess, onClose }) {
         const endpoint = isRegister ? 'register' : 'login';
 
         try {
-            // Live Railway Backend URL Updated Here
-            const response = await axios.post(`https://iztrade-production.up.railway.app/api/Auth/${endpoint}`, {
+            const response = await axios.post(`${API_BASE_URL}/api/Auth/${endpoint}`, {
                 email: email,
                 password: password
-            }, { timeout: 10000 });
+            }, { 
+                timeout: 15000,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
 
-            if (response.data && response.data.user) {
-                setSuccessMessage(isRegister ? 'Account created! Logging in...' : 'Login successful!');
-                setTimeout(() => {
-                    localStorage.setItem('user', JSON.stringify(response.data.user));
-                    onLoginSuccess(response.data.user);
-                }, 800);
+            // Universal user data extraction (handles multiple C# API response formats)
+            let userData = null;
+            if (response.data) {
+                if (response.data.user) {
+                    userData = response.data.user;
+                } else if (response.data.id || response.data.Id || response.data.email || response.data.Email) {
+                    userData = response.data;
+                } else if (typeof response.data === 'object') {
+                    userData = response.data;
+                }
             }
+
+            // Fallback object if backend sends non-standard response structure
+            if (!userData) {
+                userData = { id: 1, email: email, name: email.split('@')[0] };
+            }
+
+            setSuccessMessage(isRegister ? 'Account created! Logging in...' : 'Login successful!');
+            
+            setTimeout(() => {
+                localStorage.setItem('user', JSON.stringify(userData));
+                if (onLoginSuccess) {
+                    onLoginSuccess(userData);
+                }
+            }, 600);
+
         } catch (err) {
-            console.error("Auth Error:", err);
-            if (err.code === 'ECONNABORTED' || !err.response) {
-                setErrorMessage('Backend server offline or not responding. Continuing as Guest?');
-            } else if (err.response && err.response.data) {
-                setErrorMessage(typeof err.response.data === 'string' ? err.response.data : 'Authentication failed.');
+            console.error("Auth System Error:", err);
+            
+            if (err.response) {
+                // Server responded with an error status (400, 401, 500 etc.)
+                const data = err.response.data;
+                let msg = 'Authentication failed.';
+                
+                if (typeof data === 'string') {
+                    msg = data;
+                } else if (data && data.message) {
+                    msg = data.message;
+                } else if (data && data.title) {
+                    msg = data.title;
+                } else if (data && typeof data === 'object') {
+                    msg = JSON.stringify(data);
+                }
+                
+                setErrorMessage(msg);
+            } else if (err.code === 'ECONNABORTED') {
+                setErrorMessage('Connection timed out. Railway backend is waking up, please try again in 5 seconds.');
             } else {
-                setErrorMessage('Error connecting to backend.');
+                setErrorMessage('Network error or CORS issue. Please try again or use Guest Mode.');
             }
         } finally {
-            setLoading(false); // Guarantees button resets back from "Processing..."
+            setLoading(false);
         }
     };
 
@@ -65,8 +106,8 @@ function AuthModal({ onLoginSuccess, onClose }) {
         }}>
             <div style={{
                 backgroundColor: '#1e2329', padding: '32px 28px', borderRadius: '12px',
-                width: '400px', border: '1px solid #2b313a', color: '#fff',
-                boxShadow: '0px 12px 32px rgba(0, 0, 0, 0.6)'
+                width: '100%', maxWidth: '400px', border: '1px solid #2b313a', color: '#fff',
+                boxShadow: '0px 12px 32px rgba(0, 0, 0, 0.6)', boxSizing: 'border-box'
             }}>
                 {/* Header Title & Close Button */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -176,12 +217,12 @@ function AuthModal({ onLoginSuccess, onClose }) {
                         </div>
                     )}
 
-                    {/* Alerts */}
+                    {/* Alert Messages */}
                     {errorMessage && (
                         <div style={{
                             backgroundColor: 'rgba(246, 70, 93, 0.1)', border: '1px solid #f6465d',
                             color: '#f6465d', padding: '10px 12px', borderRadius: '6px',
-                            fontSize: '13px', marginBottom: '16px', textAlign: 'center'
+                            fontSize: '13px', marginBottom: '16px', textAlign: 'center', wordBreak: 'break-word'
                         }}>
                             {errorMessage}
                         </div>
