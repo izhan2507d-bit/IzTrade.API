@@ -3,8 +3,9 @@ import * as signalR from '@microsoft/signalr';
 import axios from 'axios';
 import AuthModal from './AuthModal';
 
-const API_BASE_URL = 'https://iztrade-production.up.railway.app';
-// trigger build
+// Dynamic API Base URL setup for Vercel & Production
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL || 'https://iztrade-production.up.railway.app';
+
 // Responsive Logo Component
 const Logo = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
