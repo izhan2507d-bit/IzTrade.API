@@ -1,7 +1,8 @@
-﻿using IzTrade.API.Data;
+using IzTrade.API.Data;
 using IzTrade.API.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 
 namespace IzTrade.API.Controllers
 {
@@ -16,7 +17,7 @@ namespace IzTrade.API.Controllers
             _context = context;
         }
 
-        // 1. User Wallet Balances Fetch Karein
+        // 1. User Wallet Balances Fetch
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetUserWallets(int userId)
         {
@@ -26,7 +27,7 @@ namespace IzTrade.API.Controllers
 
             if (!wallets.Any())
             {
-                return NotFound("Is user ka koi wallet nahi mila.");
+                return NotFound(new { message = "Is user ka koi wallet nahi mila." });
             }
 
             return Ok(wallets);
@@ -36,21 +37,29 @@ namespace IzTrade.API.Controllers
         [HttpPost("deposit")]
         public async Task<IActionResult> Deposit([FromBody] DepositDto dto)
         {
-            if (dto.Amount <= 0) return BadRequest("Deposit amount zero se bari honi chahiye.");
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (dto.Amount <= 0) 
+            {
+                return BadRequest(new { message = "Deposit amount zero se bari honi chahiye." });
+            }
 
             decimal feePercentage = 0.01m; // 1% Fee
             decimal feeAmount = dto.Amount * feePercentage;
             decimal netAmount = dto.Amount - feeAmount;
 
             var wallet = await _context.Wallets
-                .FirstOrDefaultAsync(w => w.UserId == dto.UserId && w.Currency == dto.Currency);
+                .FirstOrDefaultAsync(w => w.UserId == dto.UserId && w.Currency.ToUpper() == dto.Currency.ToUpper());
 
             if (wallet == null)
             {
                 wallet = new Wallet
                 {
                     UserId = dto.UserId,
-                    Currency = dto.Currency,
+                    Currency = dto.Currency.ToUpper(),
                     Balance = netAmount
                 };
                 _context.Wallets.Add(wallet);
@@ -60,48 +69,54 @@ namespace IzTrade.API.Controllers
                 wallet.Balance += netAmount;
             }
 
-            // Fee Ko Admin Wallet Mein Record Karein
-            await AddAdminCommission(dto.Currency, feeAmount);
-
+            // Fee Admin Wallet Mein Record Karein
+            await AddAdminCommission(dto.Currency.ToUpper(), feeAmount);
             await _context.SaveChangesAsync();
 
             return Ok(new
             {
-                Message = $"{netAmount} {dto.Currency} aapke wallet mein add ho gaye hain.",
-                FeeCharged = feeAmount,
-                NewBalance = wallet.Balance
+                message = $"{netAmount} {dto.Currency} aapke wallet mein add ho gaye hain.",
+                feeCharged = feeAmount,
+                newBalance = wallet.Balance
             });
         }
 
-        // 3. Real Money Withdrawal Endpoint ($1 / Flat Fee)
+        // 3. Real Money Withdrawal Endpoint ($1 Flat Fee)
         [HttpPost("withdraw")]
         public async Task<IActionResult> Withdraw([FromBody] WithdrawDto dto)
         {
-            if (dto.Amount <= 0) return BadRequest("Withdrawal amount invalid hai.");
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (dto.Amount <= 0) 
+            {
+                return BadRequest(new { message = "Withdrawal amount invalid hai." });
+            }
 
             decimal flatFee = 1.0m; // Fixed $1 Fee
             decimal totalRequired = dto.Amount + flatFee;
 
             var wallet = await _context.Wallets
-                .FirstOrDefaultAsync(w => w.UserId == dto.UserId && w.Currency == dto.Currency);
+                .FirstOrDefaultAsync(w => w.UserId == dto.UserId && w.Currency.ToUpper() == dto.Currency.ToUpper());
 
             if (wallet == null || wallet.Balance < totalRequired)
             {
-                return BadRequest($"Insufficient balance. Total required: {totalRequired} {dto.Currency} (includes 1 {dto.Currency} fee).");
+                return BadRequest(new { message = $"Insufficient balance. Total required: {totalRequired} {dto.Currency} (includes 1 {dto.Currency} fee)." });
             }
 
             wallet.Balance -= totalRequired;
 
             // Withdrawal Fee Admin Wallet Mein Record Karein
-            await AddAdminCommission(dto.Currency, flatFee);
-
+            await AddAdminCommission(dto.Currency.ToUpper(), flatFee);
             await _context.SaveChangesAsync();
 
             return Ok(new
             {
-                Message = $"{dto.Amount} {dto.Currency} withdraw ho gaye hain.",
-                FeeCharged = flatFee,
-                RemainingBalance = wallet.Balance
+                message = $"{dto.Amount} {dto.Currency} withdraw ho gaye hain via {dto.Method}.",
+                feeCharged = flatFee,
+                remainingBalance = wallet.Balance
             });
         }
 
@@ -116,10 +131,10 @@ namespace IzTrade.API.Controllers
         // Helper Method for Admin Commission Update
         private async Task AddAdminCommission(string currency, decimal amount)
         {
-            var adminWallet = await _context.AdminWallets.FirstOrDefaultAsync(a => a.Currency == currency);
+            var adminWallet = await _context.AdminWallets.FirstOrDefaultAsync(a => a.Currency.ToUpper() == currency.ToUpper());
             if (adminWallet == null)
             {
-                _context.AdminWallets.Add(new AdminWallet { Currency = currency, TotalCommissionEarned = amount });
+                _context.AdminWallets.Add(new AdminWallet { Currency = currency.ToUpper(), TotalCommissionEarned = amount });
             }
             else
             {
@@ -128,17 +143,33 @@ namespace IzTrade.API.Controllers
         }
     }
 
+    // FIXED DTOs WITH FLEXIBLE BINDING & OPTIONAL PROPERTIES
     public class DepositDto
     {
+        [Required]
         public int UserId { get; set; }
+
         public string Currency { get; set; } = "USDT";
+
+        [Required]
+        [Range(0.0001, double.MaxValue, ErrorMessage = "Amount zero se bari honi chahiye.")]
         public decimal Amount { get; set; }
     }
 
     public class WithdrawDto
     {
+        [Required]
         public int UserId { get; set; }
+
         public string Currency { get; set; } = "USDT";
+
+        [Required]
+        [Range(0.0001, double.MaxValue, ErrorMessage = "Amount zero se bari honi chahiye.")]
         public decimal Amount { get; set; }
+
+        public string? Method { get; set; }
+        public string? AccountTitle { get; set; }
+        public string? AccountNumber { get; set; }
+        public string? BankName { get; set; }
     }
 }
