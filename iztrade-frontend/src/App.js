@@ -165,7 +165,7 @@ function App() {
         setStatusMsg('');
     };
 
-    // FIXED ORDER PLACEMENT HANDLER
+    // UPDATED ORDER PLACEMENT HANDLER (WITH DTO WRAPPER)
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -189,19 +189,22 @@ function App() {
             return;
         }
 
-        // Exact payload schema matching Order.cs model
-        const orderPayload = {
+        // Direct object with strictly parsed Integer userId
+        const payload = {
             userId: Number(userId),
             symbol: String(symbol || "BTCUSDT"),
             price: parsedPrice,
             quantity: parsedQuantity,
-            orderType: String(orderType).toUpperCase(), // "BUY" or "SELL"
+            orderType: String(orderType).toUpperCase(),
             status: "PENDING"
         };
 
         try {
-            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, orderPayload, {
-                headers: { 'Content-Type': 'application/json' }
+            // Wrap inside 'dto' object so ASP.NET model binder maps it correctly
+            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, { dto: payload }, {
+                headers: { 
+                    'Content-Type': 'application/json' 
+                }
             });
 
             setStatusMsg(response.data?.message || 'Order placed successfully!');
