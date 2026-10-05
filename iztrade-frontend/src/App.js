@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
 import axios from 'axios';
 import AuthModal from './AuthModal';
@@ -129,6 +129,7 @@ function App() {
         if (currentUser) fetchUserData();
     }, [currentUser, fetchOrderBook, fetchUserData]);
 
+    // SignalR Setup
     useEffect(() => {
         let isMounted = true;
         const connection = new signalR.HubConnectionBuilder()
@@ -142,7 +143,9 @@ function App() {
         connection.start()
             .then(() => {
                 if (!isMounted) {
-                    connection.stop();
+                    if (connection.state === signalR.HubConnectionState.Connected) {
+                        connection.stop();
+                    }
                     return;
                 }
                 connection.on("ReceiveTrade", (tradeSymbol) => {
@@ -158,7 +161,9 @@ function App() {
 
         return () => {
             isMounted = false;
-            if (connection.state === signalR.HubConnectionState.Connected) connection.stop();
+            if (connection.state === signalR.HubConnectionState.Connected) {
+                connection.stop();
+            }
         };
     }, [symbol, fetchOrderBook, fetchUserData, currentUser]);
 
@@ -169,7 +174,7 @@ function App() {
         setStatusMsg('');
     };
 
-    // 100% WORKING ORDER PLACEMENT HANDLER (BUY / SELL)
+    // ORDER PLACEMENT HANDLER (BUY / SELL)
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -193,7 +198,6 @@ function App() {
             return;
         }
 
-        // Send both PascalCase and camelCase for .NET Model Compatibility
         const payload = {
             UserId: Number(userId),
             userId: Number(userId),
@@ -238,7 +242,7 @@ function App() {
         }
     };
 
-    // 100% WORKING DEPOSIT HANDLER
+    // DEPOSIT HANDLER
     const handleDeposit = async (e) => {
         if (e) e.preventDefault();
 
@@ -265,9 +269,7 @@ function App() {
             };
 
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, payload, {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'Content-Type': 'application/json' }
             });
 
             alert(typeof res.data === 'string' ? res.data : (res.data?.message || "Deposit successful!"));
@@ -295,7 +297,7 @@ function App() {
         }
     };
 
-    // 100% WORKING WITHDRAW HANDLER
+    // WITHDRAW HANDLER
     const handleWithdraw = async (e) => {
         if (e) e.preventDefault();
 
@@ -407,7 +409,7 @@ function App() {
                 borderBottom: '1px solid #2b313a',
                 padding: '8px 12px',
                 display: 'flex',
-                justify: 'space-between',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 boxSizing: 'border-box'
             }}>
@@ -602,8 +604,16 @@ function App() {
                 </div>
             )}
 
+            {/* Auth Modal */}
             {showAuthModal && (
-                <AuthModal onClose={() => setShowAuthModal(false)} onLoginSuccess={(user) => { setCurrentUser(user); localStorage.setItem('user', JSON.stringify(user)); setShowAuthModal(false); }} />
+                <AuthModal 
+                    onClose={() => setShowAuthModal(false)} 
+                    onSuccess={(user) => {
+                        setCurrentUser(user);
+                        localStorage.setItem('user', JSON.stringify(user));
+                        setShowAuthModal(false);
+                    }} 
+                />
             )}
         </div>
     );
