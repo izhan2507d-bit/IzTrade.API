@@ -203,12 +203,9 @@ function App() {
         };
 
         try {
-            let response;
-            try {
-                response = await axios.post(`${API_BASE_URL}/api/Order/place`, payload);
-            } catch (err) {
-                response = await axios.post(`${API_BASE_URL}/api/Order/place`, { dto: payload });
-            }
+            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, payload, {
+                headers: { 'Content-Type': 'application/json' }
+            });
 
             setStatusMsg(response.data?.message || 'Order placed successfully!');
             fetchUserData();
@@ -227,13 +224,13 @@ function App() {
         }
     };
 
-    // FIXED DEPOSIT HANDLER
+    // CLEAN & FIXED DEPOSIT HANDLER (FIXED BACKEND BINDING ISSUE)
     const handleDeposit = async (e) => {
         if (e) e.preventDefault();
 
         const userId = getValidUserId();
         if (!userId) {
-            alert("User properly logged in nahi hai.");
+            alert("Please log in first.");
             return;
         }
 
@@ -244,32 +241,26 @@ function App() {
         }
 
         try {
-            const depositPayload = {
+            const payload = {
                 userId: Number(userId),
-                UserId: Number(userId),
-                currency: 'USDT',
-                Currency: 'USDT',
-                amount: parsedAmount,
-                Amount: parsedAmount,
-                depositAmount: parsedAmount,
-                DepositAmount: parsedAmount
+                currency: "USDT",
+                amount: parsedAmount
             };
 
-            let res;
-            try {
-                res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, depositPayload);
-            } catch (err) {
-                res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, { dto: depositPayload });
-            }
+            const res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, payload, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
 
-            alert(res.data?.message || (typeof res.data === 'string' ? res.data : 'Deposit successful!'));
+            alert(typeof res.data === 'string' ? res.data : (res.data?.message || "Deposit successful!"));
             setDepositAmount('');
             setActiveModal(null);
-            await fetchUserData();
+            fetchUserData();
         } catch (err) {
-            console.error("Deposit Error:", err);
-            const errResponse = err.response?.data;
-            const msg = typeof errResponse === 'string' ? errResponse : (errResponse?.message || errResponse?.title || 'Deposit failed');
+            console.error("Deposit Error Details:", err.response);
+            const errData = err.response?.data;
+            const msg = typeof errData === 'string' ? errData : (errData?.message || errData?.title || "Deposit failed");
             alert(msg);
         }
     };
@@ -290,29 +281,19 @@ function App() {
         try {
             const withdrawData = {
                 userId: Number(userId),
-                UserId: Number(userId),
                 currency: 'USDT',
-                Currency: 'USDT',
                 amount: parsedAmount,
-                Amount: parsedAmount,
                 method: withdrawMethod,
-                Method: withdrawMethod,
                 accountTitle: accountTitle,
-                AccountTitle: accountTitle,
                 accountNumber: accountNumber,
-                AccountNumber: accountNumber,
-                bankName: withdrawMethod === 'BANK' ? bankName : undefined,
-                BankName: withdrawMethod === 'BANK' ? bankName : undefined
+                bankName: withdrawMethod === 'BANK' ? bankName : undefined
             };
 
-            let res;
-            try {
-                res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, withdrawData);
-            } catch (err) {
-                res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, { dto: withdrawData });
-            }
+            const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, withdrawData, {
+                headers: { 'Content-Type': 'application/json' }
+            });
 
-            alert(res.data?.message || (typeof res.data === 'string' ? res.data : `Withdrawal request submitted via ${withdrawMethod}`));
+            alert(typeof res.data === 'string' ? res.data : (res.data?.message || `Withdrawal request submitted via ${withdrawMethod}`));
             setWithdrawAmount('');
             setAccountTitle('');
             setAccountNumber('');
@@ -529,7 +510,7 @@ function App() {
                                 <input 
                                     type="number" 
                                     step="any" 
-                                    placeholder="Amount (e.g. 50000)" 
+                                    placeholder="Amount (e.g. 50)" 
                                     value={depositAmount} 
                                     onChange={(e) => setDepositAmount(e.target.value)} 
                                     required 
