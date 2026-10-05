@@ -4,14 +4,15 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Configure Open CORS Policy (Must be before AddControllers)
+// 1. Configure Flexible CORS Policy (SignalR Compatible)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true) // Vercel & Localhost sab allow ho jayenge
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials(); // SignalR WebSockets ke liye zaroori hai
     });
 });
 
@@ -33,13 +34,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 var app = builder.Build();
 
-// 4. Apply CORS Middleware First
-app.UseCors("AllowAll");
-
-// 5. Test Route
+// 4. Test Route
 app.MapGet("/", () => Results.Json(new { status = "Online", message = "IzTrade API Backend is running successfully!" }));
 
+// 5. Middleware Pipeline Order Fix
 app.UseRouting();
+app.UseCors("AllowAll"); // Routing ke baad CORS apply karein
+
 app.UseAuthorization();
 
 app.MapControllers();
