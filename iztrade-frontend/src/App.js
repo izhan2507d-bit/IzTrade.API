@@ -11,7 +11,7 @@ const Logo = () => (
             <rect width="100" height="100" rx="22" fill="#1E2329" />
             <rect x="22" y="20" width="14" height="60" rx="3" fill="#F0B90B" />
             <path d="M 30 20 L 78 20 L 78 32 L 52 32 Z" fill="#F0B90B" />
-            <path d="M 78 20 L 40 80 L 28 80 L 66 20 Z" fill="#FFFFFF" />
+            <path d="M 78 20 L 40 80 L 28 80 L 66 20 Z" fill="#FFFFFF" /> 
             <path d="M 32 68 L 78 68 L 78 80 L 32 80 Z" fill="#F0B90B" />
         </svg>
 
