@@ -169,7 +169,7 @@ function App() {
         setStatusMsg('');
     };
 
-    // ORDER PLACEMENT HANDLER WITH AUTO DETECTING DTO STRUCT
+    // ORDER PLACEMENT HANDLER
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -227,12 +227,13 @@ function App() {
         }
     };
 
-    // FIXED DEPOSIT HANDLER (Support for C# PascalCase/camelCase DTOs)
+    // FIXED DEPOSIT HANDLER
     const handleDeposit = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
+
         const userId = getValidUserId();
         if (!userId) {
-            alert("User not logged in properly.");
+            alert("User properly logged in nahi hai.");
             return;
         }
 
@@ -243,7 +244,7 @@ function App() {
         }
 
         try {
-            const depositData = {
+            const depositPayload = {
                 userId: Number(userId),
                 UserId: Number(userId),
                 currency: 'USDT',
@@ -256,15 +257,15 @@ function App() {
 
             let res;
             try {
-                res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, depositData);
+                res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, depositPayload);
             } catch (err) {
-                res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, { dto: depositData });
+                res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, { dto: depositPayload });
             }
 
             alert(res.data?.message || (typeof res.data === 'string' ? res.data : 'Deposit successful!'));
             setDepositAmount('');
             setActiveModal(null);
-            await fetchUserData(); // Refresh wallet
+            await fetchUserData();
         } catch (err) {
             console.error("Deposit Error:", err);
             const errResponse = err.response?.data;
@@ -275,7 +276,8 @@ function App() {
 
     // WITHDRAW HANDLER
     const handleWithdraw = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
+
         const userId = getValidUserId();
         if (!userId) return;
 
@@ -524,7 +526,15 @@ function App() {
                         {activeModal === 'DEPOSIT' && (
                             <form onSubmit={handleDeposit}>
                                 <h3 style={{ marginTop: 0, color: '#0ecb81' }}>Deposit USDT</h3>
-                                <input type="number" step="any" placeholder="Amount (e.g. 10000)" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} required style={inputStyle} />
+                                <input 
+                                    type="number" 
+                                    step="any" 
+                                    placeholder="Amount (e.g. 50000)" 
+                                    value={depositAmount} 
+                                    onChange={(e) => setDepositAmount(e.target.value)} 
+                                    required 
+                                    style={inputStyle} 
+                                />
                                 <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#0ecb81', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Confirm Deposit</button>
                             </form>
                         )}
