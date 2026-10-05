@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
 import axios from 'axios';
 import AuthModal from './AuthModal';
@@ -409,7 +409,7 @@ function App() {
                 borderBottom: '1px solid #2b313a',
                 padding: '8px 12px',
                 display: 'flex',
-                justifyContent: 'space-between',
+                justify: 'space-between',
                 alignItems: 'center',
                 boxSizing: 'border-box'
             }}>
@@ -608,7 +608,7 @@ function App() {
             {showAuthModal && (
                 <AuthModal 
                     onClose={() => setShowAuthModal(false)} 
-                    onSuccess={(user) => {
+                    onLoginSuccess={(user) => {
                         setCurrentUser(user);
                         localStorage.setItem('user', JSON.stringify(user));
                         setShowAuthModal(false);
