@@ -17,17 +17,6 @@ namespace IzTrade.API.Controllers
             _context = context;
         }
 
-        // Helper to parse UserId safely whether sent as int or string
-        private static int GetNumericUserId(object? userIdObj)
-        {
-            if (userIdObj == null) return 0;
-            if (userIdObj is int intVal) return intVal;
-            if (userIdObj is long longVal) return (int)longVal;
-            if (int.TryParse(userIdObj.ToString(), out int parsed)) return parsed;
-            return 0;
-        }
-
-        // 1. User Wallet Balances Fetch
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetUserWallets(int userId)
         {
@@ -43,12 +32,10 @@ namespace IzTrade.API.Controllers
             return Ok(wallets);
         }
 
-        // 2. Real Money Deposit Endpoint (1% Platform Fee)
         [HttpPost("deposit")]
         public async Task<IActionResult> Deposit([FromBody] DepositDto dto)
         {
-            int userId = GetNumericUserId(dto.UserId);
-            if (userId <= 0)
+            if (dto.UserId <= 0)
             {
                 return BadRequest(new { message = "Invalid User ID. Please login again." });
             }
@@ -65,13 +52,13 @@ namespace IzTrade.API.Controllers
             decimal netAmount = dto.Amount - feeAmount;
 
             var wallet = await _context.Wallets
-                .FirstOrDefaultAsync(w => w.UserId == userId && w.Currency.ToUpper() == currency);
+                .FirstOrDefaultAsync(w => w.UserId == dto.UserId && w.Currency.ToUpper() == currency);
 
             if (wallet == null)
             {
                 wallet = new Wallet
                 {
-                    UserId = userId,
+                    UserId = dto.UserId,
                     Currency = currency,
                     Balance = netAmount
                 };
@@ -93,12 +80,10 @@ namespace IzTrade.API.Controllers
             });
         }
 
-        // 3. Real Money Withdrawal Endpoint ($1 Flat Fee)
         [HttpPost("withdraw")]
         public async Task<IActionResult> Withdraw([FromBody] WithdrawDto dto)
         {
-            int userId = GetNumericUserId(dto.UserId);
-            if (userId <= 0)
+            if (dto.UserId <= 0)
             {
                 return BadRequest(new { message = "Invalid User ID. Please login again." });
             }
@@ -109,15 +94,15 @@ namespace IzTrade.API.Controllers
             }
 
             string currency = string.IsNullOrWhiteSpace(dto.Currency) ? "USDT" : dto.Currency.ToUpper();
-            decimal flatFee = 1.0m; // Fixed $1 Fee
+            decimal flatFee = 1.0m;
             decimal totalRequired = dto.Amount + flatFee;
 
             var wallet = await _context.Wallets
-                .FirstOrDefaultAsync(w => w.UserId == userId && w.Currency.ToUpper() == currency);
+                .FirstOrDefaultAsync(w => w.UserId == dto.UserId && w.Currency.ToUpper() == currency);
 
             if (wallet == null || wallet.Balance < totalRequired)
             {
-                return BadRequest(new { message = $"Insufficient balance. Total required: {totalRequired} {currency} (includes 1 {currency} fee)." });
+                return BadRequest(new { message = $"Insufficient balance. Total required: {totalRequired} {currency}." });
             }
 
             wallet.Balance -= totalRequired;
@@ -131,14 +116,6 @@ namespace IzTrade.API.Controllers
                 feeCharged = flatFee,
                 remainingBalance = wallet.Balance
             });
-        }
-
-        // 4. Admin Earnings Dashboard Endpoint
-        [HttpGet("admin/commissions")]
-        public async Task<IActionResult> GetAdminCommissions()
-        {
-            var adminWallets = await _context.AdminWallets.ToListAsync();
-            return Ok(adminWallets);
         }
 
         private async Task AddAdminCommission(string currency, decimal amount)
@@ -158,7 +135,8 @@ namespace IzTrade.API.Controllers
     public class DepositDto
     {
         [JsonPropertyName("userId")]
-        public object? UserId { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
+        public int UserId { get; set; }
 
         [JsonPropertyName("currency")]
         public string Currency { get; set; } = "USDT";
@@ -170,17 +148,13 @@ namespace IzTrade.API.Controllers
     public class WithdrawDto
     {
         [JsonPropertyName("userId")]
-        public object? UserId { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
+        public int UserId { get; set; }
 
         [JsonPropertyName("currency")]
         public string Currency { get; set; } = "USDT";
 
         [JsonPropertyName("amount")]
         public decimal Amount { get; set; }
-
-        public string? Method { get; set; }
-        public string? AccountTitle { get; set; }
-        public string? AccountNumber { get; set; }
-        public string? BankName { get; set; }
     }
 }
