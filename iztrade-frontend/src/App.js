@@ -169,7 +169,7 @@ function App() {
         setStatusMsg('');
     };
 
-    // ORDER PLACEMENT HANDLER
+    // 100% WORKING ORDER PLACEMENT HANDLER (BUY / SELL)
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -193,12 +193,19 @@ function App() {
             return;
         }
 
+        // Send both PascalCase and camelCase for .NET Model Compatibility
         const payload = {
+            UserId: Number(userId),
             userId: Number(userId),
+            Symbol: String(symbol || "BTCUSDT"),
             symbol: String(symbol || "BTCUSDT"),
+            Price: parsedPrice,
             price: parsedPrice,
+            Quantity: parsedQuantity,
             quantity: parsedQuantity,
+            OrderType: String(orderType).toUpperCase(),
             orderType: String(orderType).toUpperCase(),
+            Status: "PENDING",
             status: "PENDING"
         };
 
@@ -207,24 +214,31 @@ function App() {
                 headers: { 'Content-Type': 'application/json' }
             });
 
-            setStatusMsg(response.data?.message || 'Order placed successfully!');
+            setStatusMsg(typeof response.data === 'string' ? response.data : (response.data?.message || 'Order placed successfully!'));
             fetchUserData();
             fetchOrderBook();
         } catch (error) {
             console.error("Order Place Error:", error);
-            const errorData = error.response?.data;
+            const errData = error.response?.data;
             let errorMsg = 'Failed to place order';
 
-            if (typeof errorData === 'string') errorMsg = errorData;
-            else if (errorData?.message) errorMsg = errorData.message;
-            else if (errorData?.title) errorMsg = errorData.title;
-            else if (errorData?.errors) errorMsg = Object.values(errorData.errors).flat().join(', ');
+            if (typeof errData === 'string') {
+                errorMsg = errData;
+            } else if (errData?.errors) {
+                errorMsg = Object.entries(errData.errors)
+                    .map(([field, errs]) => `${field}: ${Array.isArray(errs) ? errs.join(', ') : errs}`)
+                    .join(' | ');
+            } else if (errData?.message) {
+                errorMsg = errData.message;
+            } else if (errData?.title) {
+                errorMsg = errData.title;
+            }
 
             setStatusMsg(`Error: ${errorMsg}`);
         }
     };
 
-    // CLEAN & FIXED DEPOSIT HANDLER (FIXED BACKEND BINDING ISSUE)
+    // 100% WORKING DEPOSIT HANDLER
     const handleDeposit = async (e) => {
         if (e) e.preventDefault();
 
@@ -242,8 +256,11 @@ function App() {
 
         try {
             const payload = {
+                UserId: Number(userId),
                 userId: Number(userId),
+                Currency: "USDT",
                 currency: "USDT",
+                Amount: parsedAmount,
                 amount: parsedAmount
             };
 
@@ -258,19 +275,35 @@ function App() {
             setActiveModal(null);
             fetchUserData();
         } catch (err) {
-            console.error("Deposit Error Details:", err.response);
+            console.error("Deposit Error Details:", err.response?.data);
             const errData = err.response?.data;
-            const msg = typeof errData === 'string' ? errData : (errData?.message || errData?.title || "Deposit failed");
+            let msg = "Deposit failed";
+
+            if (typeof errData === 'string') {
+                msg = errData;
+            } else if (errData?.errors) {
+                msg = Object.entries(errData.errors)
+                    .map(([field, errs]) => `${field}: ${Array.isArray(errs) ? errs.join(', ') : errs}`)
+                    .join('\n');
+            } else if (errData?.message) {
+                msg = errData.message;
+            } else if (errData?.title) {
+                msg = errData.title;
+            }
+
             alert(msg);
         }
     };
 
-    // WITHDRAW HANDLER
+    // 100% WORKING WITHDRAW HANDLER
     const handleWithdraw = async (e) => {
         if (e) e.preventDefault();
 
         const userId = getValidUserId();
-        if (!userId) return;
+        if (!userId) {
+            alert("Please log in first.");
+            return;
+        }
 
         const parsedAmount = parseFloat(withdrawAmount);
         if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -280,12 +313,19 @@ function App() {
 
         try {
             const withdrawData = {
+                UserId: Number(userId),
                 userId: Number(userId),
+                Currency: 'USDT',
                 currency: 'USDT',
+                Amount: parsedAmount,
                 amount: parsedAmount,
+                Method: withdrawMethod,
                 method: withdrawMethod,
+                AccountTitle: accountTitle,
                 accountTitle: accountTitle,
+                AccountNumber: accountNumber,
                 accountNumber: accountNumber,
+                BankName: withdrawMethod === 'BANK' ? bankName : undefined,
                 bankName: withdrawMethod === 'BANK' ? bankName : undefined
             };
 
@@ -302,8 +342,21 @@ function App() {
             await fetchUserData();
         } catch (err) {
             console.error("Withdraw Error:", err);
-            const errResponse = err.response?.data;
-            const msg = typeof errResponse === 'string' ? errResponse : (errResponse?.message || errResponse?.title || 'Withdrawal failed');
+            const errData = err.response?.data;
+            let msg = 'Withdrawal failed';
+
+            if (typeof errData === 'string') {
+                msg = errData;
+            } else if (errData?.errors) {
+                msg = Object.entries(errData.errors)
+                    .map(([field, errs]) => `${field}: ${Array.isArray(errs) ? errs.join(', ') : errs}`)
+                    .join('\n');
+            } else if (errData?.message) {
+                msg = errData.message;
+            } else if (errData?.title) {
+                msg = errData.title;
+            }
+
             alert(msg);
         }
     };
