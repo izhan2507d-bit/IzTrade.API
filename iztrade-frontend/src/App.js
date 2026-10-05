@@ -97,10 +97,14 @@ function App() {
 
         try {
             const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${userId}`);
-            if (walletRes.data) setWallets(walletRes.data);
+            if (walletRes.data) {
+                setWallets(Array.isArray(walletRes.data) ? walletRes.data : [walletRes.data]);
+            }
 
             const adminRes = await axios.get(`${API_BASE_URL}/api/Wallet/admin/commissions`);
-            if (adminRes.data) setAdminCommissions(adminRes.data);
+            if (adminRes.data) {
+                setAdminCommissions(Array.isArray(adminRes.data) ? adminRes.data : [adminRes.data]);
+            }
         } catch (err) {
             console.error("Wallet Fetch Error:", err);
         }
@@ -165,7 +169,7 @@ function App() {
         setStatusMsg('');
     };
 
-    // UPDATED ORDER PLACEMENT HANDLER (WITH DTO WRAPPER)
+    // ORDER PLACEMENT HANDLER WITH AUTO DETECTING DTO STRUCT
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -177,7 +181,7 @@ function App() {
 
         const userId = getValidUserId();
         if (!userId) {
-            setStatusMsg('Error: Invalid session. Please Logout and Login again.');
+            setStatusMsg('Error: User session expired. Please re-login.');
             return;
         }
 
@@ -189,7 +193,6 @@ function App() {
             return;
         }
 
-        // Direct object with strictly parsed Integer userId
         const payload = {
             userId: Number(userId),
             symbol: String(symbol || "BTCUSDT"),
@@ -200,12 +203,13 @@ function App() {
         };
 
         try {
-            // Wrap inside 'dto' object so ASP.NET model binder maps it correctly
-            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, { dto: payload }, {
-                headers: { 
-                    'Content-Type': 'application/json' 
-                }
-            });
+            // Trying both direct JSON and wrapped dto
+            let response;
+            try {
+                response = await axios.post(`${API_BASE_URL}/api/Order/place`, payload);
+            } catch (err) {
+                response = await axios.post(`${API_BASE_URL}/api/Order/place`, { dto: payload });
+            }
 
             setStatusMsg(response.data?.message || 'Order placed successfully!');
             fetchUserData();
@@ -214,65 +218,89 @@ function App() {
             console.error("Order Place Error:", error);
             const errorData = error.response?.data;
             let errorMsg = 'Failed to place order';
+
             if (typeof errorData === 'string') errorMsg = errorData;
-            else if (errorData?.errors) errorMsg = Object.values(errorData.errors).flat().join(', ');
             else if (errorData?.message) errorMsg = errorData.message;
             else if (errorData?.title) errorMsg = errorData.title;
+            else if (errorData?.errors) errorMsg = Object.values(errorData.errors).flat().join(', ');
 
             setStatusMsg(`Error: ${errorMsg}`);
         }
     };
 
+    // DEPOSIT HANDLER WITH RETRY & REFRESH
     const handleDeposit = async (e) => {
         e.preventDefault();
         const userId = getValidUserId();
-        if (!userId) return;
+        if (!userId) {
+            alert("User not logged in properly.");
+            return;
+        }
 
         try {
-            const res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, {
-                userId: userId,
+            const depositData = {
+                userId: Number(userId),
                 currency: 'USDT',
                 amount: parseFloat(depositAmount)
-            });
-            alert(res.data.message || 'Deposit successful!');
+            };
+
+            let res;
+            try {
+                res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, depositData);
+            } catch (err) {
+                res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, { dto: depositData });
+            }
+
+            alert(res.data?.message || 'Deposit successful!');
             setDepositAmount('');
             setActiveModal(null);
-            fetchUserData();
+            await fetchUserData(); // Force Wallet Refresh
         } catch (err) {
+            console.error("Deposit Error:", err);
             alert(err.response?.data?.message || err.response?.data || 'Deposit failed');
         }
     };
 
+    // WITHDRAW HANDLER
     const handleWithdraw = async (e) => {
         e.preventDefault();
         const userId = getValidUserId();
         if (!userId) return;
 
         try {
-            const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, {
-                userId: userId,
+            const withdrawData = {
+                userId: Number(userId),
                 currency: 'USDT',
                 amount: parseFloat(withdrawAmount),
                 method: withdrawMethod,
                 accountTitle: accountTitle,
                 accountNumber: accountNumber,
                 bankName: withdrawMethod === 'BANK' ? bankName : undefined
-            });
-            alert(res.data.message || `Withdrawal request submitted via ${withdrawMethod}`);
+            };
+
+            let res;
+            try {
+                res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, withdrawData);
+            } catch (err) {
+                res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, { dto: withdrawData });
+            }
+
+            alert(res.data?.message || `Withdrawal request submitted via ${withdrawMethod}`);
             setWithdrawAmount('');
             setAccountTitle('');
             setAccountNumber('');
             setBankName('');
             setActiveModal(null);
-            fetchUserData();
+            await fetchUserData();
         } catch (err) {
+            console.error("Withdraw Error:", err);
             alert(err.response?.data?.message || err.response?.data || 'Withdrawal failed');
         }
     };
 
-    const usdtWallet = wallets.find(w => w.currency === 'USDT' || w.Currency === 'USDT') || { balance: 0, Balance: 0 };
-    const btcWallet = wallets.find(w => w.currency === 'BTC' || w.Currency === 'BTC') || { balance: 0, Balance: 0 };
-    const adminUsdt = adminCommissions.find(a => a.currency === 'USDT' || a.Currency === 'USDT') || { totalCommissionEarned: 0, TotalCommissionEarned: 0 };
+    const usdtWallet = wallets.find(w => (w.currency || w.Currency) === 'USDT') || { balance: 0, Balance: 0 };
+    const btcWallet = wallets.find(w => (w.currency || w.Currency) === 'BTC') || { balance: 0, Balance: 0 };
+    const adminUsdt = adminCommissions.find(a => (a.currency || a.Currency) === 'USDT') || { totalCommissionEarned: 0, TotalCommissionEarned: 0 };
 
     const getUsdtVal = () => (usdtWallet.balance !== undefined ? usdtWallet.balance : usdtWallet.Balance) || 0;
     const getBtcVal = () => (btcWallet.balance !== undefined ? btcWallet.balance : btcWallet.Balance) || 0;
@@ -310,7 +338,7 @@ function App() {
     return (
         <div style={{ backgroundColor: '#0b0e11', color: '#eaecef', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: '12px', overflowX: 'hidden' }}>
 
-            {/* Top Navigation Bar */}
+            {/* Header */}
             <header style={{
                 backgroundColor: '#181a20',
                 borderBottom: '1px solid #2b313a',
@@ -355,7 +383,7 @@ function App() {
                 </div>
             )}
 
-            {/* Main Trading Area */}
+            {/* Main Layout */}
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : '1fr 300px 300px',
@@ -363,7 +391,7 @@ function App() {
                 backgroundColor: '#1e2329'
             }}>
 
-                {/* Left Chart Panel */}
+                {/* Left Chart */}
                 {(!isMobile || activeMobileTab === 'chart') && (
                     <div style={{ backgroundColor: '#181a20', display: 'flex', flexDirection: 'column', height: '100%' }}>
                         <iframe
@@ -376,7 +404,7 @@ function App() {
                     </div>
                 )}
 
-                {/* Center Order Book Panel */}
+                {/* Order Book */}
                 {(!isMobile || activeMobileTab === 'book') && (
                     <div style={{ backgroundColor: '#181a20', display: 'flex', flexDirection: 'column', borderLeft: isMobile ? 'none' : '1px solid #2b313a', borderRight: isMobile ? 'none' : '1px solid #2b313a', height: '100%' }}>
                         <div style={{ padding: '8px 12px', borderBottom: '1px solid #2b313a', fontWeight: 'bold', color: '#eaecef' }}>Order Book</div>
@@ -411,7 +439,7 @@ function App() {
                     </div>
                 )}
 
-                {/* Right Trade Form Panel */}
+                {/* Trade Form */}
                 {(!isMobile || activeMobileTab === 'trade') && (
                     <div style={{ backgroundColor: '#181a20', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', backgroundColor: '#0b0e11', padding: '4px', borderRadius: '6px' }}>
@@ -447,12 +475,12 @@ function App() {
                             </button>
                         </form>
 
-                        {statusMsg && <div style={{ padding: '10px', backgroundColor: '#2b313a', borderRadius: '6px', color: '#f0b90b', textAlign: 'center' }}>{statusMsg}</div>}
+                        {statusMsg && <div style={{ padding: '10px', backgroundColor: '#2b313a', borderRadius: '6px', color: '#f0b90b', textAlign: 'center', wordBreak: 'break-word' }}>{statusMsg}</div>}
                     </div>
                 )}
             </div>
 
-            {/* Mobile Bottom Quick Action Bar */}
+            {/* Mobile Bottom Bar */}
             {isMobile && activeMobileTab !== 'trade' && (
                 <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: '#181a20', borderTop: '1px solid #2b313a', padding: '8px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', zIndex: 99 }}>
                     <button onClick={() => { setOrderType('BUY'); setActiveMobileTab('trade'); }} style={{ padding: '12px', backgroundColor: '#0ecb81', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '14px' }}>BUY BTC</button>
@@ -469,7 +497,7 @@ function App() {
                         {activeModal === 'DEPOSIT' && (
                             <form onSubmit={handleDeposit}>
                                 <h3 style={{ marginTop: 0, color: '#0ecb81' }}>Deposit USDT</h3>
-                                <input type="number" step="any" placeholder="Amount" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} required style={inputStyle} />
+                                <input type="number" step="any" placeholder="Amount (e.g. 10000)" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} required style={inputStyle} />
                                 <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#0ecb81', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Confirm Deposit</button>
                             </form>
                         )}
