@@ -203,7 +203,6 @@ function App() {
         };
 
         try {
-            // Trying both direct JSON and wrapped dto
             let response;
             try {
                 response = await axios.post(`${API_BASE_URL}/api/Order/place`, payload);
@@ -228,7 +227,7 @@ function App() {
         }
     };
 
-    // DEPOSIT HANDLER WITH RETRY & REFRESH
+    // FIXED DEPOSIT HANDLER (Support for C# PascalCase/camelCase DTOs)
     const handleDeposit = async (e) => {
         e.preventDefault();
         const userId = getValidUserId();
@@ -237,11 +236,22 @@ function App() {
             return;
         }
 
+        const parsedAmount = parseFloat(depositAmount);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+            alert("Deposit amount zero se bari honi chahiye.");
+            return;
+        }
+
         try {
             const depositData = {
                 userId: Number(userId),
+                UserId: Number(userId),
                 currency: 'USDT',
-                amount: parseFloat(depositAmount)
+                Currency: 'USDT',
+                amount: parsedAmount,
+                Amount: parsedAmount,
+                depositAmount: parsedAmount,
+                DepositAmount: parsedAmount
             };
 
             let res;
@@ -251,13 +261,15 @@ function App() {
                 res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, { dto: depositData });
             }
 
-            alert(res.data?.message || 'Deposit successful!');
+            alert(res.data?.message || (typeof res.data === 'string' ? res.data : 'Deposit successful!'));
             setDepositAmount('');
             setActiveModal(null);
-            await fetchUserData(); // Force Wallet Refresh
+            await fetchUserData(); // Refresh wallet
         } catch (err) {
             console.error("Deposit Error:", err);
-            alert(err.response?.data?.message || err.response?.data || 'Deposit failed');
+            const errResponse = err.response?.data;
+            const msg = typeof errResponse === 'string' ? errResponse : (errResponse?.message || errResponse?.title || 'Deposit failed');
+            alert(msg);
         }
     };
 
@@ -267,15 +279,28 @@ function App() {
         const userId = getValidUserId();
         if (!userId) return;
 
+        const parsedAmount = parseFloat(withdrawAmount);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+            alert("Withdraw amount zero se bari honi chahiye.");
+            return;
+        }
+
         try {
             const withdrawData = {
                 userId: Number(userId),
+                UserId: Number(userId),
                 currency: 'USDT',
-                amount: parseFloat(withdrawAmount),
+                Currency: 'USDT',
+                amount: parsedAmount,
+                Amount: parsedAmount,
                 method: withdrawMethod,
+                Method: withdrawMethod,
                 accountTitle: accountTitle,
+                AccountTitle: accountTitle,
                 accountNumber: accountNumber,
-                bankName: withdrawMethod === 'BANK' ? bankName : undefined
+                AccountNumber: accountNumber,
+                bankName: withdrawMethod === 'BANK' ? bankName : undefined,
+                BankName: withdrawMethod === 'BANK' ? bankName : undefined
             };
 
             let res;
@@ -285,7 +310,7 @@ function App() {
                 res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, { dto: withdrawData });
             }
 
-            alert(res.data?.message || `Withdrawal request submitted via ${withdrawMethod}`);
+            alert(res.data?.message || (typeof res.data === 'string' ? res.data : `Withdrawal request submitted via ${withdrawMethod}`));
             setWithdrawAmount('');
             setAccountTitle('');
             setAccountNumber('');
@@ -294,7 +319,9 @@ function App() {
             await fetchUserData();
         } catch (err) {
             console.error("Withdraw Error:", err);
-            alert(err.response?.data?.message || err.response?.data || 'Withdrawal failed');
+            const errResponse = err.response?.data;
+            const msg = typeof errResponse === 'string' ? errResponse : (errResponse?.message || errResponse?.title || 'Withdrawal failed');
+            alert(msg);
         }
     };
 
@@ -344,7 +371,7 @@ function App() {
                 borderBottom: '1px solid #2b313a',
                 padding: '8px 12px',
                 display: 'flex',
-                justifyContent: 'space-between',
+                justify: 'space-between',
                 alignItems: 'center',
                 boxSizing: 'border-box'
             }}>
