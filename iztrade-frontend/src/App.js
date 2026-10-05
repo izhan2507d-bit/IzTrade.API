@@ -165,6 +165,7 @@ function App() {
         setStatusMsg('');
     };
 
+    // FIXED ORDER PLACEMENT HANDLER
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -188,20 +189,18 @@ function App() {
             return;
         }
 
-        const orderData = {
-            userId: userId,
+        // Exact payload schema matching Order.cs model
+        const orderPayload = {
+            userId: Number(userId),
             symbol: String(symbol || "BTCUSDT"),
             price: parsedPrice,
             quantity: parsedQuantity,
-            side: String(orderType).toUpperCase(),
-            orderType: "LIMIT"
+            orderType: String(orderType).toUpperCase(), // "BUY" or "SELL"
+            status: "PENDING"
         };
 
-        // Standard Payload structured exactly as expected by ASP.NET Controller ([FromBody] PlaceOrderDto dto)
-        const dtoPayload = { dto: orderData };
-
         try {
-            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, dtoPayload, {
+            const response = await axios.post(`${API_BASE_URL}/api/Order/place`, orderPayload, {
                 headers: { 'Content-Type': 'application/json' }
             });
 
@@ -209,28 +208,15 @@ function App() {
             fetchUserData();
             fetchOrderBook();
         } catch (error) {
-            console.error("Order primary payload failed, retrying flat payload:", error);
+            console.error("Order Place Error:", error);
+            const errorData = error.response?.data;
+            let errorMsg = 'Failed to place order';
+            if (typeof errorData === 'string') errorMsg = errorData;
+            else if (errorData?.errors) errorMsg = Object.values(errorData.errors).flat().join(', ');
+            else if (errorData?.message) errorMsg = errorData.message;
+            else if (errorData?.title) errorMsg = errorData.title;
 
-            // Automatic Fallback: Try flat payload if backend accepts un-wrapped DTO
-            try {
-                const flatResponse = await axios.post(`${API_BASE_URL}/api/Order/place`, orderData, {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                setStatusMsg(flatResponse.data?.message || 'Order placed successfully!');
-                fetchUserData();
-                fetchOrderBook();
-                return;
-            } catch (flatErr) {
-                console.error("Flat payload retry failed:", flatErr);
-                const errorData = flatErr.response?.data || error.response?.data;
-                let errorMsg = 'Validation Error';
-                if (typeof errorData === 'string') errorMsg = errorData;
-                else if (errorData?.errors) errorMsg = Object.values(errorData.errors).flat().join(', ');
-                else if (errorData?.message) errorMsg = errorData.message;
-                else if (errorData?.title) errorMsg = errorData.title;
-
-                setStatusMsg(`Error: ${errorMsg}`);
-            }
+            setStatusMsg(`Error: ${errorMsg}`);
         }
     };
 
@@ -327,7 +313,7 @@ function App() {
                 borderBottom: '1px solid #2b313a',
                 padding: '8px 12px',
                 display: 'flex',
-                justify: 'space-between',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 boxSizing: 'border-box'
             }}>
