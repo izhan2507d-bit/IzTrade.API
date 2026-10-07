@@ -69,7 +69,13 @@ function App() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Robust Helper to extract UserId (Handles int, string int, and object properties)
+    // Helper: Auth Token extract
+    const getAuthHeaders = () => {
+        const token = currentUser?.token || localStorage.getItem('token');
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
+    // Helper to extract Valid Integer UserId
     const getValidUserId = useCallback(() => {
         if (!currentUser) return null;
         
@@ -78,7 +84,7 @@ function App() {
         if (rawUserId === undefined || rawUserId === null) return null;
 
         const parsed = parseInt(rawUserId, 10);
-        return (!isNaN(parsed) && parsed > 0) ? parsed : rawUserId;
+        return (!isNaN(parsed) && parsed > 0) ? parsed : null;
     }, [currentUser]);
 
     const getItemQty = (item) => {
@@ -104,19 +110,20 @@ function App() {
         if (!userId) return;
 
         try {
-            const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${userId}`);
+            const headers = getAuthHeaders();
+            const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${userId}`, { headers });
             if (walletRes.data) {
                 setWallets(Array.isArray(walletRes.data) ? walletRes.data : [walletRes.data]);
             }
 
-            const adminRes = await axios.get(`${API_BASE_URL}/api/Wallet/admin/commissions`);
+            const adminRes = await axios.get(`${API_BASE_URL}/api/Wallet/admin/commissions`, { headers });
             if (adminRes.data) {
                 setAdminCommissions(Array.isArray(adminRes.data) ? adminRes.data : [adminRes.data]);
             }
         } catch (err) {
             console.error("Wallet Fetch Error:", err);
         }
-    }, [getValidUserId]);
+    }, [getValidUserId, currentUser]);
 
     const fetchOrderBook = useCallback(async () => {
         try {
@@ -177,12 +184,13 @@ function App() {
 
     const handleLogout = () => {
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
         setCurrentUser(null);
         setWallets([]);
         setStatusMsg('');
     };
 
-    // ORDER PLACEMENT HANDLER (100% Matching Backend Signature)
+    // ORDER PLACEMENT HANDLER (FIXED FOR DTO ERROR)
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -208,26 +216,27 @@ function App() {
 
         setStatusMsg('Processing Order...');
 
-        const intUserId = typeof userId === 'number' ? userId : parseInt(userId, 10);
-
-        const payload = {
-            userId: !isNaN(intUserId) ? intUserId : userId,
-            UserId: !isNaN(intUserId) ? intUserId : userId,
+        const orderData = {
+            userId: userId,
             symbol: String(symbol || "BTCUSDT"),
-            Symbol: String(symbol || "BTCUSDT"),
             price: parsedPrice,
-            Price: parsedPrice,
             quantity: parsedQuantity,
-            Quantity: parsedQuantity,
             orderType: String(orderType).toUpperCase(),
-            OrderType: String(orderType).toUpperCase(),
-            status: "PENDING",
-            Status: "PENDING"
+            status: "PENDING"
+        };
+
+        // FIXED: Backend Expects DTO Wrapper Object & Auth Token
+        const payload = {
+            dto: orderData,
+            ...orderData // Fallback parameters
         };
 
         try {
             const response = await axios.post(`${API_BASE_URL}/api/Order/place`, payload, {
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                }
             });
 
             setStatusMsg(typeof response.data === 'string' ? response.data : (response.data?.message || 'Order placed successfully!'));
@@ -254,7 +263,7 @@ function App() {
         }
     };
 
-    // DEPOSIT HANDLER
+    // DEPOSIT HANDLER (FIXED FOR AUTHENTICATION ERROR)
     const handleDeposit = async (e) => {
         if (e) e.preventDefault();
 
@@ -272,20 +281,24 @@ function App() {
             return;
         }
 
-        const intUserId = typeof userId === 'number' ? userId : parseInt(userId, 10);
+        const depositData = {
+            userId: userId,
+            currency: "USDT",
+            amount: parsedAmount
+        };
+
+        // FIXED: DTO wrapper + Bearer token header added
+        const payload = {
+            dto: depositData,
+            ...depositData
+        };
 
         try {
-            const payload = {
-                userId: !isNaN(intUserId) ? intUserId : userId,
-                UserId: !isNaN(intUserId) ? intUserId : userId,
-                currency: "USDT",
-                Currency: "USDT",
-                amount: parsedAmount,
-                Amount: parsedAmount
-            };
-
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, payload, {
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                }
             });
 
             alert(typeof res.data === 'string' ? res.data : (res.data?.message || "Deposit successful!"));
@@ -297,7 +310,9 @@ function App() {
             const errData = err.response?.data;
             let msg = "Deposit failed";
 
-            if (typeof errData === 'string') {
+            if (err.response?.status === 401) {
+                msg = "Invalid User Session. Please logout and login again.";
+            } else if (typeof errData === 'string') {
                 msg = errData;
             } else if (errData?.errors) {
                 msg = Object.entries(errData.errors)
@@ -331,28 +346,27 @@ function App() {
             return;
         }
 
-        const intUserId = typeof userId === 'number' ? userId : parseInt(userId, 10);
+        const withdrawData = {
+            userId: userId,
+            currency: 'USDT',
+            amount: parsedAmount,
+            method: withdrawMethod,
+            accountTitle: accountTitle,
+            accountNumber: accountNumber,
+            bankName: withdrawMethod === 'BANK' ? bankName : undefined
+        };
+
+        const payload = {
+            dto: withdrawData,
+            ...withdrawData
+        };
 
         try {
-            const withdrawData = {
-                userId: !isNaN(intUserId) ? intUserId : userId,
-                UserId: !isNaN(intUserId) ? intUserId : userId,
-                currency: 'USDT',
-                Currency: 'USDT',
-                amount: parsedAmount,
-                Amount: parsedAmount,
-                method: withdrawMethod,
-                Method: withdrawMethod,
-                accountTitle: accountTitle,
-                AccountTitle: accountTitle,
-                accountNumber: accountNumber,
-                AccountNumber: accountNumber,
-                bankName: withdrawMethod === 'BANK' ? bankName : undefined,
-                BankName: withdrawMethod === 'BANK' ? bankName : undefined
-            };
-
-            const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, withdrawData, {
-                headers: { 'Content-Type': 'application/json' }
+            const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, payload, {
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                }
             });
 
             alert(typeof res.data === 'string' ? res.data : (res.data?.message || `Withdrawal request submitted via ${withdrawMethod}`));
@@ -367,7 +381,9 @@ function App() {
             const errData = err.response?.data;
             let msg = 'Withdrawal failed';
 
-            if (typeof errData === 'string') {
+            if (err.response?.status === 401) {
+                msg = "Invalid User Session. Please logout and login again.";
+            } else if (typeof errData === 'string') {
                 msg = errData;
             } else if (errData?.errors) {
                 msg = Object.entries(errData.errors)
@@ -631,6 +647,9 @@ function App() {
                     onLoginSuccess={(user) => {
                         setCurrentUser(user);
                         localStorage.setItem('user', JSON.stringify(user));
+                        if (user.token) {
+                            localStorage.setItem('token', user.token);
+                        }
                         setShowAuthModal(false);
                     }} 
                 />
