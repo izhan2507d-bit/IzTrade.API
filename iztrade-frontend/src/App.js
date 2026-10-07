@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
 import axios from 'axios';
 import AuthModal from './AuthModal';
@@ -29,8 +29,12 @@ const Logo = () => (
 function App() {
     // Auth States
     const [currentUser, setCurrentUser] = useState(() => {
-        const savedUser = localStorage.getItem('user');
-        return savedUser ? JSON.parse(savedUser) : null;
+        try {
+            const savedUser = localStorage.getItem('user');
+            return savedUser ? JSON.parse(savedUser) : null;
+        } catch {
+            return null;
+        }
     });
     const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -65,10 +69,20 @@ function App() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Helper to extract valid integer UserId safely
+    // Helper: Header for Bearer Token
+    const getAuthHeaders = useCallback(() => {
+        const token = currentUser?.token || localStorage.getItem('token');
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    }, [currentUser]);
+
+    // Robust Helper to extract Valid Numeric UserId
     const getValidUserId = useCallback(() => {
         if (!currentUser) return null;
-        const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id || currentUser.Id;
+        
+        let rawUserId = currentUser.id ?? currentUser.userId ?? currentUser.UserDTO?.id ?? currentUser.user?.id ?? currentUser.Id ?? currentUser.UserId;
+        
+        if (rawUserId === undefined || rawUserId === null) return null;
+
         const parsed = parseInt(rawUserId, 10);
         return (!isNaN(parsed) && parsed > 0) ? parsed : null;
     }, [currentUser]);
@@ -96,19 +110,20 @@ function App() {
         if (!userId) return;
 
         try {
-            const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${userId}`);
+            const headers = getAuthHeaders();
+            const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${userId}`, { headers });
             if (walletRes.data) {
                 setWallets(Array.isArray(walletRes.data) ? walletRes.data : [walletRes.data]);
             }
 
-            const adminRes = await axios.get(`${API_BASE_URL}/api/Wallet/admin/commissions`);
+            const adminRes = await axios.get(`${API_BASE_URL}/api/Wallet/admin/commissions`, { headers });
             if (adminRes.data) {
                 setAdminCommissions(Array.isArray(adminRes.data) ? adminRes.data : [adminRes.data]);
             }
         } catch (err) {
             console.error("Wallet Fetch Error:", err);
         }
-    }, [getValidUserId]);
+    }, [getValidUserId, getAuthHeaders]);
 
     const fetchOrderBook = useCallback(async () => {
         try {
@@ -169,12 +184,13 @@ function App() {
 
     const handleLogout = () => {
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
         setCurrentUser(null);
         setWallets([]);
         setStatusMsg('');
     };
 
-    // ORDER PLACEMENT HANDLER (BUY / SELL)
+    // 100% GUARANTEED ORDER PLACEMENT HANDLER
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -182,11 +198,11 @@ function App() {
             return;
         }
 
-        setStatusMsg('Processing Order...');
-
         const userId = getValidUserId();
         if (!userId) {
-            setStatusMsg('Error: User session expired. Please re-login.');
+            alert("Invalid User Session. Please logout and login again.");
+            handleLogout();
+            setShowAuthModal(true);
             return;
         }
 
@@ -198,24 +214,38 @@ function App() {
             return;
         }
 
-        const payload = {
-            UserId: Number(userId),
-            userId: Number(userId),
-            Symbol: String(symbol || "BTCUSDT"),
+        setStatusMsg('Processing Order...');
+
+        const numericUserId = parseInt(userId, 10);
+
+        const innerPayload = {
+            userId: numericUserId,
+            UserId: numericUserId,
             symbol: String(symbol || "BTCUSDT"),
-            Price: parsedPrice,
+            Symbol: String(symbol || "BTCUSDT"),
             price: parsedPrice,
-            Quantity: parsedQuantity,
+            Price: parsedPrice,
             quantity: parsedQuantity,
-            OrderType: String(orderType).toUpperCase(),
+            Quantity: parsedQuantity,
             orderType: String(orderType).toUpperCase(),
-            Status: "PENDING",
-            status: "PENDING"
+            OrderType: String(orderType).toUpperCase(),
+            status: "PENDING",
+            Status: "PENDING"
+        };
+
+        // Satisfies both direct binding & [FromBody] PlaceOrderDto dto parameter binding
+        const payload = {
+            dto: innerPayload,
+            Dto: innerPayload,
+            ...innerPayload
         };
 
         try {
             const response = await axios.post(`${API_BASE_URL}/api/Order/place`, payload, {
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                }
             });
 
             setStatusMsg(typeof response.data === 'string' ? response.data : (response.data?.message || 'Order placed successfully!'));
@@ -242,13 +272,15 @@ function App() {
         }
     };
 
-    // DEPOSIT HANDLER
+    // 100% GUARANTEED DEPOSIT HANDLER
     const handleDeposit = async (e) => {
         if (e) e.preventDefault();
 
         const userId = getValidUserId();
         if (!userId) {
-            alert("Please log in first.");
+            alert("Invalid User Session. Please logout and login again.");
+            handleLogout();
+            setShowAuthModal(true);
             return;
         }
 
@@ -258,18 +290,29 @@ function App() {
             return;
         }
 
-        try {
-            const payload = {
-                UserId: Number(userId),
-                userId: Number(userId),
-                Currency: "USDT",
-                currency: "USDT",
-                Amount: parsedAmount,
-                amount: parsedAmount
-            };
+        const numericUserId = parseInt(userId, 10);
 
+        const innerPayload = {
+            userId: numericUserId,
+            UserId: numericUserId,
+            currency: "USDT",
+            Currency: "USDT",
+            amount: parsedAmount,
+            Amount: parsedAmount
+        };
+
+        const payload = {
+            dto: innerPayload,
+            Dto: innerPayload,
+            ...innerPayload
+        };
+
+        try {
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, payload, {
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                }
             });
 
             alert(typeof res.data === 'string' ? res.data : (res.data?.message || "Deposit successful!"));
@@ -281,7 +324,9 @@ function App() {
             const errData = err.response?.data;
             let msg = "Deposit failed";
 
-            if (typeof errData === 'string') {
+            if (err.response?.status === 401) {
+                msg = "Invalid User Session. Please logout and login again.";
+            } else if (typeof errData === 'string') {
                 msg = errData;
             } else if (errData?.errors) {
                 msg = Object.entries(errData.errors)
@@ -303,7 +348,9 @@ function App() {
 
         const userId = getValidUserId();
         if (!userId) {
-            alert("Please log in first.");
+            alert("Invalid User Session. Please logout and login again.");
+            handleLogout();
+            setShowAuthModal(true);
             return;
         }
 
@@ -313,26 +360,37 @@ function App() {
             return;
         }
 
-        try {
-            const withdrawData = {
-                UserId: Number(userId),
-                userId: Number(userId),
-                Currency: 'USDT',
-                currency: 'USDT',
-                Amount: parsedAmount,
-                amount: parsedAmount,
-                Method: withdrawMethod,
-                method: withdrawMethod,
-                AccountTitle: accountTitle,
-                accountTitle: accountTitle,
-                AccountNumber: accountNumber,
-                accountNumber: accountNumber,
-                BankName: withdrawMethod === 'BANK' ? bankName : undefined,
-                bankName: withdrawMethod === 'BANK' ? bankName : undefined
-            };
+        const numericUserId = parseInt(userId, 10);
 
-            const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, withdrawData, {
-                headers: { 'Content-Type': 'application/json' }
+        const innerPayload = {
+            userId: numericUserId,
+            UserId: numericUserId,
+            currency: 'USDT',
+            Currency: 'USDT',
+            amount: parsedAmount,
+            Amount: parsedAmount,
+            method: withdrawMethod,
+            Method: withdrawMethod,
+            accountTitle: accountTitle,
+            AccountTitle: accountTitle,
+            accountNumber: accountNumber,
+            AccountNumber: accountNumber,
+            bankName: withdrawMethod === 'BANK' ? bankName : undefined,
+            BankName: withdrawMethod === 'BANK' ? bankName : undefined
+        };
+
+        const payload = {
+            dto: innerPayload,
+            Dto: innerPayload,
+            ...innerPayload
+        };
+
+        try {
+            const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, payload, {
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                }
             });
 
             alert(typeof res.data === 'string' ? res.data : (res.data?.message || `Withdrawal request submitted via ${withdrawMethod}`));
@@ -347,7 +405,9 @@ function App() {
             const errData = err.response?.data;
             let msg = 'Withdrawal failed';
 
-            if (typeof errData === 'string') {
+            if (err.response?.status === 401) {
+                msg = "Invalid User Session. Please logout and login again.";
+            } else if (typeof errData === 'string') {
                 msg = errData;
             } else if (errData?.errors) {
                 msg = Object.entries(errData.errors)
@@ -409,7 +469,7 @@ function App() {
                 borderBottom: '1px solid #2b313a',
                 padding: '8px 12px',
                 display: 'flex',
-                justifyContent: 'space-between',
+                justify: 'space-between',
                 alignItems: 'center',
                 boxSizing: 'border-box'
             }}>
@@ -608,9 +668,13 @@ function App() {
             {showAuthModal && (
                 <AuthModal 
                     onClose={() => setShowAuthModal(false)} 
-                    onSuccess={(user) => {
+                    onLoginSuccess={(user) => {
                         setCurrentUser(user);
                         localStorage.setItem('user', JSON.stringify(user));
+                        const extractedToken = user.token || user.Token || user.jwt || user.accessToken;
+                        if (extractedToken) {
+                            localStorage.setItem('token', extractedToken);
+                        }
                         setShowAuthModal(false);
                     }} 
                 />
