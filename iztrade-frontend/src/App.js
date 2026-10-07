@@ -29,8 +29,12 @@ const Logo = () => (
 function App() {
     // Auth States
     const [currentUser, setCurrentUser] = useState(() => {
-        const savedUser = localStorage.getItem('user');
-        return savedUser ? JSON.parse(savedUser) : null;
+        try {
+            const savedUser = localStorage.getItem('user');
+            return savedUser ? JSON.parse(savedUser) : null;
+        } catch {
+            return null;
+        }
     });
     const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -65,12 +69,16 @@ function App() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Helper to extract valid integer UserId safely
+    // Robust Helper to extract UserId (Handles int, string int, and object properties)
     const getValidUserId = useCallback(() => {
         if (!currentUser) return null;
-        const rawUserId = currentUser.id || currentUser.userId || currentUser.UserDTO?.id || currentUser.user?.id || currentUser.Id;
+        
+        let rawUserId = currentUser.id ?? currentUser.userId ?? currentUser.UserDTO?.id ?? currentUser.user?.id ?? currentUser.Id ?? currentUser.UserId;
+        
+        if (rawUserId === undefined || rawUserId === null) return null;
+
         const parsed = parseInt(rawUserId, 10);
-        return (!isNaN(parsed) && parsed > 0) ? parsed : null;
+        return (!isNaN(parsed) && parsed > 0) ? parsed : rawUserId;
     }, [currentUser]);
 
     const getItemQty = (item) => {
@@ -174,7 +182,7 @@ function App() {
         setStatusMsg('');
     };
 
-    // ORDER PLACEMENT HANDLER (FIXED PAYLOAD WITH DTO WRAPPER)
+    // ORDER PLACEMENT HANDLER (100% Matching Backend Signature)
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -182,11 +190,11 @@ function App() {
             return;
         }
 
-        setStatusMsg('Processing Order...');
-
         const userId = getValidUserId();
         if (!userId) {
-            setStatusMsg('Error: User session expired. Please re-login.');
+            alert("Invalid User Session. Please logout and login again.");
+            handleLogout();
+            setShowAuthModal(true);
             return;
         }
 
@@ -198,9 +206,13 @@ function App() {
             return;
         }
 
-        const orderData = {
-            userId: parseInt(userId, 10),
-            UserId: parseInt(userId, 10),
+        setStatusMsg('Processing Order...');
+
+        const intUserId = typeof userId === 'number' ? userId : parseInt(userId, 10);
+
+        const payload = {
+            userId: !isNaN(intUserId) ? intUserId : userId,
+            UserId: !isNaN(intUserId) ? intUserId : userId,
             symbol: String(symbol || "BTCUSDT"),
             Symbol: String(symbol || "BTCUSDT"),
             price: parsedPrice,
@@ -211,12 +223,6 @@ function App() {
             OrderType: String(orderType).toUpperCase(),
             status: "PENDING",
             Status: "PENDING"
-        };
-
-        // Send both direct payload and dto wrapper payload
-        const payload = {
-            ...orderData,
-            dto: orderData
         };
 
         try {
@@ -254,7 +260,9 @@ function App() {
 
         const userId = getValidUserId();
         if (!userId) {
-            alert("Please log in first.");
+            alert("Invalid User Session. Please logout and login again.");
+            handleLogout();
+            setShowAuthModal(true);
             return;
         }
 
@@ -264,10 +272,12 @@ function App() {
             return;
         }
 
+        const intUserId = typeof userId === 'number' ? userId : parseInt(userId, 10);
+
         try {
             const payload = {
-                userId: parseInt(userId, 10),
-                UserId: parseInt(userId, 10),
+                userId: !isNaN(intUserId) ? intUserId : userId,
+                UserId: !isNaN(intUserId) ? intUserId : userId,
                 currency: "USDT",
                 Currency: "USDT",
                 amount: parsedAmount,
@@ -309,7 +319,9 @@ function App() {
 
         const userId = getValidUserId();
         if (!userId) {
-            alert("Please log in first.");
+            alert("Invalid User Session. Please logout and login again.");
+            handleLogout();
+            setShowAuthModal(true);
             return;
         }
 
@@ -319,10 +331,12 @@ function App() {
             return;
         }
 
+        const intUserId = typeof userId === 'number' ? userId : parseInt(userId, 10);
+
         try {
             const withdrawData = {
-                userId: parseInt(userId, 10),
-                UserId: parseInt(userId, 10),
+                userId: !isNaN(intUserId) ? intUserId : userId,
+                UserId: !isNaN(intUserId) ? intUserId : userId,
                 currency: 'USDT',
                 Currency: 'USDT',
                 amount: parsedAmount,
