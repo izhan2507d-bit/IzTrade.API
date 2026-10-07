@@ -174,7 +174,7 @@ function App() {
         setStatusMsg('');
     };
 
-    // ORDER PLACEMENT HANDLER (BUY / SELL)
+    // ORDER PLACEMENT HANDLER (FIXED PAYLOAD WITH DTO WRAPPER)
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -198,19 +198,25 @@ function App() {
             return;
         }
 
-        const payload = {
-            UserId: Number(userId),
-            userId: Number(userId),
-            Symbol: String(symbol || "BTCUSDT"),
+        const orderData = {
+            userId: parseInt(userId, 10),
+            UserId: parseInt(userId, 10),
             symbol: String(symbol || "BTCUSDT"),
-            Price: parsedPrice,
+            Symbol: String(symbol || "BTCUSDT"),
             price: parsedPrice,
-            Quantity: parsedQuantity,
+            Price: parsedPrice,
             quantity: parsedQuantity,
-            OrderType: String(orderType).toUpperCase(),
+            Quantity: parsedQuantity,
             orderType: String(orderType).toUpperCase(),
-            Status: "PENDING",
-            status: "PENDING"
+            OrderType: String(orderType).toUpperCase(),
+            status: "PENDING",
+            Status: "PENDING"
+        };
+
+        // Send both direct payload and dto wrapper payload
+        const payload = {
+            ...orderData,
+            dto: orderData
         };
 
         try {
@@ -260,12 +266,12 @@ function App() {
 
         try {
             const payload = {
-                UserId: Number(userId),
-                userId: Number(userId),
-                Currency: "USDT",
+                userId: parseInt(userId, 10),
+                UserId: parseInt(userId, 10),
                 currency: "USDT",
-                Amount: parsedAmount,
-                amount: parsedAmount
+                Currency: "USDT",
+                amount: parsedAmount,
+                Amount: parsedAmount
             };
 
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/deposit`, payload, {
@@ -315,20 +321,20 @@ function App() {
 
         try {
             const withdrawData = {
-                UserId: Number(userId),
-                userId: Number(userId),
-                Currency: 'USDT',
+                userId: parseInt(userId, 10),
+                UserId: parseInt(userId, 10),
                 currency: 'USDT',
-                Amount: parsedAmount,
+                Currency: 'USDT',
                 amount: parsedAmount,
-                Method: withdrawMethod,
+                Amount: parsedAmount,
                 method: withdrawMethod,
-                AccountTitle: accountTitle,
+                Method: withdrawMethod,
                 accountTitle: accountTitle,
-                AccountNumber: accountNumber,
+                AccountTitle: accountTitle,
                 accountNumber: accountNumber,
-                BankName: withdrawMethod === 'BANK' ? bankName : undefined,
-                bankName: withdrawMethod === 'BANK' ? bankName : undefined
+                AccountNumber: accountNumber,
+                bankName: withdrawMethod === 'BANK' ? bankName : undefined,
+                BankName: withdrawMethod === 'BANK' ? bankName : undefined
             };
 
             const res = await axios.post(`${API_BASE_URL}/api/Wallet/withdraw`, withdrawData, {
