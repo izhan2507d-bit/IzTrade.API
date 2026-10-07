@@ -190,7 +190,7 @@ function App() {
         setStatusMsg('');
     };
 
-    // 100% GUARANTEED ORDER PLACEMENT HANDLER
+    // FIXED ORDER PLACEMENT HANDLER
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -218,26 +218,14 @@ function App() {
 
         const numericUserId = parseInt(userId, 10);
 
-        const innerPayload = {
-            userId: numericUserId,
-            UserId: numericUserId,
-            symbol: String(symbol || "BTCUSDT"),
-            Symbol: String(symbol || "BTCUSDT"),
-            price: parsedPrice,
-            Price: parsedPrice,
-            quantity: parsedQuantity,
-            Quantity: parsedQuantity,
-            orderType: String(orderType).toUpperCase(),
-            OrderType: String(orderType).toUpperCase(),
-            status: "PENDING",
-            Status: "PENDING"
-        };
-
-        // Satisfies both direct binding & [FromBody] PlaceOrderDto dto parameter binding
+        // CLEAN FLAT PAYLOAD FOR .NET BINDING
         const payload = {
-            dto: innerPayload,
-            Dto: innerPayload,
-            ...innerPayload
+            userId: numericUserId,
+            symbol: String(symbol || "BTCUSDT"),
+            price: parsedPrice,
+            quantity: parsedQuantity,
+            orderType: String(orderType).toUpperCase(),
+            status: "PENDING"
         };
 
         try {
@@ -272,7 +260,7 @@ function App() {
         }
     };
 
-    // 100% GUARANTEED DEPOSIT HANDLER
+    // FIXED DEPOSIT HANDLER
     const handleDeposit = async (e) => {
         if (e) e.preventDefault();
 
@@ -292,19 +280,11 @@ function App() {
 
         const numericUserId = parseInt(userId, 10);
 
-        const innerPayload = {
-            userId: numericUserId,
-            UserId: numericUserId,
-            currency: "USDT",
-            Currency: "USDT",
-            amount: parsedAmount,
-            Amount: parsedAmount
-        };
-
+        // CLEAN FLAT PAYLOAD
         const payload = {
-            dto: innerPayload,
-            Dto: innerPayload,
-            ...innerPayload
+            userId: numericUserId,
+            currency: "USDT",
+            amount: parsedAmount
         };
 
         try {
@@ -342,7 +322,7 @@ function App() {
         }
     };
 
-    // WITHDRAW HANDLER
+    // FIXED WITHDRAW HANDLER
     const handleWithdraw = async (e) => {
         if (e) e.preventDefault();
 
@@ -362,27 +342,15 @@ function App() {
 
         const numericUserId = parseInt(userId, 10);
 
-        const innerPayload = {
-            userId: numericUserId,
-            UserId: numericUserId,
-            currency: 'USDT',
-            Currency: 'USDT',
-            amount: parsedAmount,
-            Amount: parsedAmount,
-            method: withdrawMethod,
-            Method: withdrawMethod,
-            accountTitle: accountTitle,
-            AccountTitle: accountTitle,
-            accountNumber: accountNumber,
-            AccountNumber: accountNumber,
-            bankName: withdrawMethod === 'BANK' ? bankName : undefined,
-            BankName: withdrawMethod === 'BANK' ? bankName : undefined
-        };
-
+        // CLEAN FLAT PAYLOAD
         const payload = {
-            dto: innerPayload,
-            Dto: innerPayload,
-            ...innerPayload
+            userId: numericUserId,
+            currency: 'USDT',
+            amount: parsedAmount,
+            method: withdrawMethod,
+            accountTitle: accountTitle,
+            accountNumber: accountNumber,
+            bankName: withdrawMethod === 'BANK' ? bankName : undefined
         };
 
         try {
