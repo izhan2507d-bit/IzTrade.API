@@ -27,15 +27,20 @@ namespace IzTrade.API.Controllers
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                if (dto == null || dto.Quantity <= 0 || dto.Price <= 0)
+                if (dto == null || dto.UserId <= 0)
+                {
+                    return BadRequest("Valid UserId is required.");
+                }
+
+                if (dto.Quantity <= 0 || dto.Price <= 0)
                 {
                     return BadRequest("Invalid price or quantity.");
                 }
 
+                int userId = dto.UserId;
                 string orderType = dto.OrderType.ToUpper();
                 string symbol = string.IsNullOrEmpty(dto.Symbol) ? "BTCUSDT" : dto.Symbol.ToUpper();
-                
-                // Dynamic Currency Extraction (e.g. BTCUSDT -> Base: BTC, Quote: USDT)
+
                 string baseCurrency = symbol.Replace("USDT", "");
                 string quoteCurrency = "USDT";
 
@@ -45,7 +50,7 @@ namespace IzTrade.API.Controllers
                 if (orderType == "BUY")
                 {
                     var quoteWallet = await _context.Wallets
-                        .FirstOrDefaultAsync(w => w.UserId == dto.UserId && w.Currency == quoteCurrency);
+                        .FirstOrDefaultAsync(w => w.UserId == userId && w.Currency == quoteCurrency);
 
                     if (quoteWallet == null) return BadRequest($"User {quoteCurrency} wallet not found.");
 
@@ -61,7 +66,7 @@ namespace IzTrade.API.Controllers
                 else if (orderType == "SELL")
                 {
                     var baseWallet = await _context.Wallets
-                        .FirstOrDefaultAsync(w => w.UserId == dto.UserId && w.Currency == baseCurrency);
+                        .FirstOrDefaultAsync(w => w.UserId == userId && w.Currency == baseCurrency);
 
                     if (baseWallet == null || baseWallet.Balance < dto.Quantity)
                         return BadRequest($"Insufficient {baseCurrency} balance. Required: {dto.Quantity}");
@@ -72,7 +77,7 @@ namespace IzTrade.API.Controllers
 
                 var newOrder = new Order
                 {
-                    UserId = dto.UserId,
+                    UserId = userId,
                     Symbol = symbol,
                     OrderType = orderType,
                     Price = dto.Price,
@@ -101,7 +106,6 @@ namespace IzTrade.API.Controllers
 
         private async Task ProcessMatchingEngine(AppDbContext db, Order newOrder, string baseCurrency, string quoteCurrency)
         {
-            // Matching logic without exact quantity lock (Allows Partial Fill Matching)
             Order? matchingOrder = null;
 
             if (newOrder.OrderType == "SELL")
@@ -130,7 +134,7 @@ namespace IzTrade.API.Controllers
             if (matchingOrder != null)
             {
                 decimal matchQuantity = Math.Min(newOrder.Quantity, matchingOrder.Quantity);
-                
+
                 var buyOrder = newOrder.OrderType == "BUY" ? newOrder : matchingOrder;
                 var sellOrder = newOrder.OrderType == "SELL" ? newOrder : matchingOrder;
 
@@ -139,7 +143,7 @@ namespace IzTrade.API.Controllers
                     BuyOrderId = buyOrder.Id,
                     SellOrderId = sellOrder.Id,
                     Symbol = newOrder.Symbol,
-                    Price = matchingOrder.Price, // Fill at orderbook price
+                    Price = matchingOrder.Price,
                     Quantity = matchQuantity,
                     ExecutedAt = DateTime.UtcNow
                 };
@@ -150,7 +154,6 @@ namespace IzTrade.API.Controllers
                 decimal sellFee = matchAmount * feePercentage;
                 decimal sellerNetQuote = matchAmount - sellFee;
 
-                // Update Buyer Base Wallet
                 var buyerBaseWallet = await db.Wallets
                     .FirstOrDefaultAsync(w => w.UserId == buyOrder.UserId && w.Currency == baseCurrency);
                 if (buyerBaseWallet == null)
@@ -162,7 +165,6 @@ namespace IzTrade.API.Controllers
                     buyerBaseWallet.Balance += matchQuantity;
                 }
 
-                // Update Buyer Quote Wallet (Release Locked)
                 var buyerQuoteWallet = await db.Wallets
                     .FirstOrDefaultAsync(w => w.UserId == buyOrder.UserId && w.Currency == quoteCurrency);
                 if (buyerQuoteWallet != null)
@@ -170,7 +172,6 @@ namespace IzTrade.API.Controllers
                     buyerQuoteWallet.LockedBalance -= matchAmount;
                 }
 
-                // Update Seller Base Wallet (Release Locked)
                 var sellerBaseWallet = await db.Wallets
                     .FirstOrDefaultAsync(w => w.UserId == sellOrder.UserId && w.Currency == baseCurrency);
                 if (sellerBaseWallet != null)
@@ -178,7 +179,6 @@ namespace IzTrade.API.Controllers
                     sellerBaseWallet.LockedBalance -= matchQuantity;
                 }
 
-                // Update Seller Quote Wallet
                 var sellerQuoteWallet = await db.Wallets
                     .FirstOrDefaultAsync(w => w.UserId == sellOrder.UserId && w.Currency == quoteCurrency);
                 if (sellerQuoteWallet == null)
@@ -190,14 +190,12 @@ namespace IzTrade.API.Controllers
                     sellerQuoteWallet.Balance += sellerNetQuote;
                 }
 
-                // Update Status
                 newOrder.Quantity -= matchQuantity;
                 matchingOrder.Quantity -= matchQuantity;
 
                 newOrder.Status = newOrder.Quantity == 0 ? "FILLED" : "PARTIAL";
                 matchingOrder.Status = matchingOrder.Quantity == 0 ? "FILLED" : "PARTIAL";
 
-                // Admin Commission Update
                 var adminWallet = await db.AdminWallets.FirstOrDefaultAsync(a => a.Currency == quoteCurrency);
                 if (adminWallet == null)
                 {
