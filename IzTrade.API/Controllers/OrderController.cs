@@ -32,8 +32,8 @@ namespace IzTrade.API.Controllers
                     return BadRequest("Invalid request payload.");
                 }
 
-                // Robust UserId Fallback (0 ya null hone par auto User 1 consider karein)
-                int userId = model.UserId > 0 ? model.UserId : 1;
+                // Long to Int Safe Conversion (Overflow Safe)
+                int userId = (model.UserId > 0 && model.UserId <= int.MaxValue) ? (int)model.UserId : 1;
 
                 if (model.Quantity <= 0 || model.Price <= 0)
                 {
@@ -54,14 +54,14 @@ namespace IzTrade.API.Controllers
                     var quoteWallet = await _context.Wallets
                         .FirstOrDefaultAsync(w => w.UserId == userId && w.Currency == quoteCurrency);
 
-                    // AUTO CREATE / TOP-UP DEMO WALLET WITH $10,000,000
+                    // AUTO CREATE / RESET DEMO WALLET TO $10,000,000 USDT
                     if (quoteWallet == null)
                     {
                         quoteWallet = new Wallet
                         {
                             UserId = userId,
                             Currency = quoteCurrency,
-                            Balance = 10000000.0m, // $10 Million Demo Balance
+                            Balance = 10000000.0m, // $10 Million Demo
                             LockedBalance = 0.0m
                         };
                         _context.Wallets.Add(quoteWallet);
@@ -90,7 +90,7 @@ namespace IzTrade.API.Controllers
                         {
                             UserId = userId,
                             Currency = baseCurrency,
-                            Balance = 100.0m, // Default 100 BTC for selling demo
+                            Balance = 100.0m, // 100 BTC Demo
                             LockedBalance = 0.0m
                         };
                         _context.Wallets.Add(baseWallet);
@@ -237,10 +237,12 @@ namespace IzTrade.API.Controllers
         }
 
         [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetUserOrders(int userId)
+        public async Task<IActionResult> GetUserOrders(long userId)
         {
+            int validUserId = (userId > 0 && userId <= int.MaxValue) ? (int)userId : 1;
+
             var orders = await _context.Orders
-                .Where(o => o.UserId == userId)
+                .Where(o => o.UserId == validUserId)
                 .OrderByDescending(o => o.CreatedAt)
                 .ToListAsync();
 
