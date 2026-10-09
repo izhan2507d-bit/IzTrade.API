@@ -20,10 +20,21 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 
-// 3. Database Context (Railway Safe: InMemory Database for Instant Live Demo)
+// 3. Database Context Setup (Railway Cloud Database / Fallback)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                       ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseInMemoryDatabase("IzTradeLiveDb");
+    if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("localdb", StringComparison.OrdinalIgnoreCase))
+    {
+        options.UseSqlServer(connectionString);
+    }
+    else
+    {
+        // Railway container par LocalDB fail na ho, iske liye default SqlServer configuration
+        options.UseSqlServer("Server=tcp:localhost;Database=IzTradeDb;Trusted_Connection=True;TrustServerCertificate=True;");
+    }
 });
 
 var app = builder.Build();
