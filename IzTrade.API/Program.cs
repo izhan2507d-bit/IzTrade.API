@@ -20,16 +20,10 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 
-// 3. Database Context
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                       ?? Environment.GetEnvironmentVariable("DATABASE_URL");
-
+// 3. Database Context (Railway Safe: InMemory Database for Instant Live Demo)
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    if (!string.IsNullOrEmpty(connectionString))
-    {
-        options.UseSqlServer(connectionString);
-    }
+    options.UseInMemoryDatabase("IzTradeLiveDb");
 });
 
 var app = builder.Build();
