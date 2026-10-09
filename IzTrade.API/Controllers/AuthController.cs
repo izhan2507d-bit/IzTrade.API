@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
-using IzTrade.API.Data;   // AppDbContext yahan hai
-using IzTrade.API.DTOs;   // UserRegisterDto aur UserLoginDto yahan hain
-using IzTrade.API.Models; // User aur Wallet yahan hain
+using IzTrade.API.Data;
+using IzTrade.API.DTOs;
+using IzTrade.API.Models;
 
 namespace IzTrade.API.Controllers
 {
@@ -44,12 +44,12 @@ namespace IzTrade.API.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // 2. Demo Trading Ke Liye Initial Wallets Create Karein ($10,000 USDT)
+            // 2. Demo Practice Trading Ke Liye $100,000,000 USDT Balance Set Karein
             var usdtWallet = new Wallet
             {
                 UserId = user.Id,
                 Currency = "USDT",
-                Balance = 10000.0m,
+                Balance = 100000000.0m, // 100 Million USDT
                 LockedBalance = 0.0m
             };
 
