@@ -22,39 +22,39 @@ namespace IzTrade.API.Controllers
         }
 
         [HttpPost("place")]
-        public async Task<IActionResult> PlaceOrder([FromBody] CreateOrderDto request)
+        public async Task<IActionResult> PlaceOrder([FromBody] CreateOrderDto model)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                if (request == null)
+                if (model == null)
                 {
                     return BadRequest("Invalid request payload.");
                 }
 
-                // Robust UserId Fallback (0 ya invalid hone par auto User 1 set karein)
-                int userId = request.UserId > 0 ? request.UserId : 1;
+                // Robust UserId Fallback (0 ya null hone par auto User 1 consider karein)
+                int userId = model.UserId > 0 ? model.UserId : 1;
 
-                if (request.Quantity <= 0 || request.Price <= 0)
+                if (model.Quantity <= 0 || model.Price <= 0)
                 {
                     return BadRequest("Invalid price or quantity.");
                 }
 
-                string orderType = (request.OrderType ?? "BUY").ToUpper();
-                string symbol = string.IsNullOrEmpty(request.Symbol) ? "BTCUSDT" : request.Symbol.ToUpper();
+                string orderType = (model.OrderType ?? "BUY").ToUpper();
+                string symbol = string.IsNullOrEmpty(model.Symbol) ? "BTCUSDT" : model.Symbol.ToUpper();
 
                 string baseCurrency = symbol.Replace("USDT", "");
                 string quoteCurrency = "USDT";
 
                 decimal feePercentage = 0.002m; // 0.2% Fee
-                decimal tradeAmount = request.Price * request.Quantity;
+                decimal tradeAmount = model.Price * model.Quantity;
 
                 if (orderType == "BUY")
                 {
                     var quoteWallet = await _context.Wallets
                         .FirstOrDefaultAsync(w => w.UserId == userId && w.Currency == quoteCurrency);
 
-                    // AUTO CREATE WALLET WITH $10,000,000 IF NOT EXISTS OR LOW BALANCE
+                    // AUTO CREATE / TOP-UP DEMO WALLET WITH $10,000,000
                     if (quoteWallet == null)
                     {
                         quoteWallet = new Wallet
@@ -97,8 +97,8 @@ namespace IzTrade.API.Controllers
                         await _context.SaveChangesAsync();
                     }
 
-                    baseWallet.Balance -= request.Quantity;
-                    baseWallet.LockedBalance += request.Quantity;
+                    baseWallet.Balance -= model.Quantity;
+                    baseWallet.LockedBalance += model.Quantity;
                 }
 
                 var newOrder = new Order
@@ -106,8 +106,8 @@ namespace IzTrade.API.Controllers
                     UserId = userId,
                     Symbol = symbol,
                     OrderType = orderType,
-                    Price = request.Price,
-                    Quantity = request.Quantity,
+                    Price = model.Price,
+                    Quantity = model.Quantity,
                     Status = "PENDING",
                     CreatedAt = DateTime.UtcNow
                 };
