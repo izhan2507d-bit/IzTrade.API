@@ -20,25 +20,30 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 
-// 3. Database Context Setup (SQLite - Lightweight & Railway Compatible)
+// 3. Database Context Setup
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
+                       ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseSqlite("Data Source=iztrade.db");
+    if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("localdb", StringComparison.OrdinalIgnoreCase))
+    {
+        options.UseSqlServer(connectionString);
+    }
+    else
+    {
+        // Safe Fallback String to prevent LocalDB crashes on Linux
+        var fallbackConnStr = "Server=tcp:127.0.0.1,1433;Database=IzTradeDb;User Id=sa;Password=Your_password123!;TrustServerCertificate=True;Connect Timeout=5;";
+        options.UseSqlServer(fallbackConnStr);
+    }
 });
 
 var app = builder.Build();
 
-// 4. Auto-Ensure Database & Tables Created
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
-}
-
-// 5. Test Route
+// 4. Test Route
 app.MapGet("/", () => Results.Json(new { status = "Online", message = "IzTrade API Backend is running successfully!" }));
 
-// 6. Middleware Pipeline
+// 5. Middleware Pipeline
 app.UseRouting();
 app.UseCors("AllowAll");
 
