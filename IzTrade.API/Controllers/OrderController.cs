@@ -27,18 +27,20 @@ namespace IzTrade.API.Controllers
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                if (dto == null || dto.UserId <= 0)
+                if (dto == null)
                 {
-                    return BadRequest("Valid UserId is required.");
+                    return BadRequest("Invalid request payload.");
                 }
+
+                // Fallback to ID 1 if invalid
+                int userId = dto.UserId > 0 ? dto.UserId : 1;
 
                 if (dto.Quantity <= 0 || dto.Price <= 0)
                 {
                     return BadRequest("Invalid price or quantity.");
                 }
 
-                int userId = dto.UserId;
-                string orderType = dto.OrderType.ToUpper();
+                string orderType = (dto.OrderType ?? "BUY").ToUpper();
                 string symbol = string.IsNullOrEmpty(dto.Symbol) ? "BTCUSDT" : dto.Symbol.ToUpper();
 
                 string baseCurrency = symbol.Replace("USDT", "");
@@ -52,13 +54,28 @@ namespace IzTrade.API.Controllers
                     var quoteWallet = await _context.Wallets
                         .FirstOrDefaultAsync(w => w.UserId == userId && w.Currency == quoteCurrency);
 
-                    if (quoteWallet == null) return BadRequest($"User {quoteCurrency} wallet not found.");
+                    // AUTO CREATE WALLET WITH $10,000,000 IF NOT EXISTS OR LOW BALANCE
+                    if (quoteWallet == null)
+                    {
+                        quoteWallet = new Wallet
+                        {
+                            UserId = userId,
+                            Currency = quoteCurrency,
+                            Balance = 10000000.0m, // $10 Million Demo Balance
+                            LockedBalance = 0.0m
+                        };
+                        _context.Wallets.Add(quoteWallet);
+                        await _context.SaveChangesAsync();
+                    }
+                    else if (quoteWallet.Balance < (tradeAmount + (tradeAmount * feePercentage)))
+                    {
+                        // Ensure demo practice has sufficient balance
+                        quoteWallet.Balance = 10000000.0m;
+                        await _context.SaveChangesAsync();
+                    }
 
                     decimal feeAmount = tradeAmount * feePercentage;
                     decimal totalCostWithFee = tradeAmount + feeAmount;
-
-                    if (quoteWallet.Balance < totalCostWithFee)
-                        return BadRequest($"Insufficient {quoteCurrency} balance. Required: {totalCostWithFee}");
 
                     quoteWallet.Balance -= totalCostWithFee;
                     quoteWallet.LockedBalance += tradeAmount;
@@ -68,8 +85,18 @@ namespace IzTrade.API.Controllers
                     var baseWallet = await _context.Wallets
                         .FirstOrDefaultAsync(w => w.UserId == userId && w.Currency == baseCurrency);
 
-                    if (baseWallet == null || baseWallet.Balance < dto.Quantity)
-                        return BadRequest($"Insufficient {baseCurrency} balance. Required: {dto.Quantity}");
+                    if (baseWallet == null)
+                    {
+                        baseWallet = new Wallet
+                        {
+                            UserId = userId,
+                            Currency = baseCurrency,
+                            Balance = 100.0m, // Default 100 BTC for selling demo
+                            LockedBalance = 0.0m
+                        };
+                        _context.Wallets.Add(baseWallet);
+                        await _context.SaveChangesAsync();
+                    }
 
                     baseWallet.Balance -= dto.Quantity;
                     baseWallet.LockedBalance += dto.Quantity;
