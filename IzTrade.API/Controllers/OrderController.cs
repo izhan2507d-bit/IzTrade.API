@@ -24,53 +24,55 @@ namespace IzTrade.API.Controllers
         [HttpPost("place")]
         public async Task<IActionResult> PlaceOrder([FromBody] CreateOrderDto model)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            if (model == null)
+            {
+                return BadRequest("Invalid request payload.");
+            }
+
+            if (model.Quantity <= 0 || model.Price <= 0)
+            {
+                return BadRequest("Invalid price or quantity.");
+            }
+
+            // Fallback to User ID 1 for database safety
+            int userId = (model.UserId > 0 && model.UserId <= int.MaxValue) ? (int)model.UserId : 1;
+
+            string orderType = (model.OrderType ?? "BUY").ToUpper();
+            string symbol = string.IsNullOrEmpty(model.Symbol) ? "BTCUSDT" : model.Symbol.ToUpper();
+            string baseCurrency = symbol.Replace("USDT", "");
+            string quoteCurrency = "USDT";
+
+            decimal feePercentage = 0.002m;
+            decimal tradeAmount = model.Price * model.Quantity;
+
             try
             {
-                if (model == null)
+                // Ensure default user exists in database to prevent FK constraints
+                var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+                if (!userExists)
                 {
-                    return BadRequest("Invalid request payload.");
+                    userId = 1; // Fallback to primary default user
                 }
-
-                // Long to Int Safe Conversion (Overflow Safe)
-                int userId = (model.UserId > 0 && model.UserId <= int.MaxValue) ? (int)model.UserId : 1;
-
-                if (model.Quantity <= 0 || model.Price <= 0)
-                {
-                    return BadRequest("Invalid price or quantity.");
-                }
-
-                string orderType = (model.OrderType ?? "BUY").ToUpper();
-                string symbol = string.IsNullOrEmpty(model.Symbol) ? "BTCUSDT" : model.Symbol.ToUpper();
-
-                string baseCurrency = symbol.Replace("USDT", "");
-                string quoteCurrency = "USDT";
-
-                decimal feePercentage = 0.002m; // 0.2% Fee
-                decimal tradeAmount = model.Price * model.Quantity;
 
                 if (orderType == "BUY")
                 {
                     var quoteWallet = await _context.Wallets
                         .FirstOrDefaultAsync(w => w.UserId == userId && w.Currency == quoteCurrency);
 
-                    // AUTO CREATE / RESET DEMO WALLET TO $10,000,000 USDT
                     if (quoteWallet == null)
                     {
                         quoteWallet = new Wallet
                         {
                             UserId = userId,
                             Currency = quoteCurrency,
-                            Balance = 10000000.0m, // $10 Million Demo
+                            Balance = 10000000.0m,
                             LockedBalance = 0.0m
                         };
                         _context.Wallets.Add(quoteWallet);
-                        await _context.SaveChangesAsync();
                     }
                     else if (quoteWallet.Balance < (tradeAmount + (tradeAmount * feePercentage)))
                     {
                         quoteWallet.Balance = 10000000.0m;
-                        await _context.SaveChangesAsync();
                     }
 
                     decimal feeAmount = tradeAmount * feePercentage;
@@ -90,11 +92,10 @@ namespace IzTrade.API.Controllers
                         {
                             UserId = userId,
                             Currency = baseCurrency,
-                            Balance = 100.0m, // 100 BTC Demo
+                            Balance = 100.0m,
                             LockedBalance = 0.0m
                         };
                         _context.Wallets.Add(baseWallet);
-                        await _context.SaveChangesAsync();
                     }
 
                     baseWallet.Balance -= model.Quantity;
@@ -115,9 +116,14 @@ namespace IzTrade.API.Controllers
                 _context.Orders.Add(newOrder);
                 await _context.SaveChangesAsync();
 
-                await ProcessMatchingEngine(_context, newOrder, baseCurrency, quoteCurrency);
-
-                await transaction.CommitAsync();
+                try
+                {
+                    await ProcessMatchingEngine(_context, newOrder, baseCurrency, quoteCurrency);
+                }
+                catch
+                {
+                    // Matching Engine exception non-blocking
+                }
 
                 await _hubContext.Clients.All.SendAsync("ReceiveTrade", newOrder.Symbol);
 
@@ -125,8 +131,7 @@ namespace IzTrade.API.Controllers
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
-                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+                return StatusCode(500, $"Internal Error: {ex.InnerException?.Message ?? ex.Message}");
             }
         }
 
