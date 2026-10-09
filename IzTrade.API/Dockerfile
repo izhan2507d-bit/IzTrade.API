@@ -1,13 +1,14 @@
-# Step 1: Use .NET 9 SDK to support newer target frameworks
+# Step 1: Build Stage using .NET 9 SDK
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Step 2: Copy all project files from the root directory
-COPY . .
-
-# Step 3: Restore dependencies and publish the application
+# Step 2: Copy csproj and restore dependencies first (for faster caching)
+COPY ["IzTrade.API.csproj", "./"]
 RUN dotnet restore "IzTrade.API.csproj"
-RUN dotnet publish "IzTrade.API.csproj" -c Release -o /app/publish
+
+# Step 3: Copy all source files and publish
+COPY . .
+RUN dotnet publish "IzTrade.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Step 4: Setup runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
