@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Configure Flexible CORS Policy (SignalR Compatible)
+// 1. Configure Flexible CORS Policy
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -20,33 +20,37 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 
-// 3. Database Context Setup
+// 3. PostgreSQL Database Setup (Railway Environment Variable)
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
                        ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("localdb", StringComparison.OrdinalIgnoreCase))
-    {
-        options.UseSqlServer(connectionString);
-    }
-    else
-    {
-        // Safe Fallback String to prevent LocalDB crashes on Linux
-        var fallbackConnStr = "Server=tcp:127.0.0.1,1433;Database=IzTradeDb;User Id=sa;Password=Your_password123!;TrustServerCertificate=True;Connect Timeout=5;";
-        options.UseSqlServer(fallbackConnStr);
-    }
+    options.UseNpgsql(connectionString);
 });
 
 var app = builder.Build();
 
-// 4. Test Route
-app.MapGet("/", () => Results.Json(new { status = "Online", message = "IzTrade API Backend is running successfully!" }));
+// 4. Auto-Create PostgreSQL Tables on Startup
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database Init Exception: {ex.Message}");
+    }
+}
 
-// 5. Middleware Pipeline
+// 5. Test Endpoint
+app.MapGet("/", () => Results.Json(new { status = "Online", database = "PostgreSQL Connected" }));
+
+// 6. Middleware Pipeline
 app.UseRouting();
 app.UseCors("AllowAll");
-
 app.UseAuthorization();
 
 app.MapControllers();
