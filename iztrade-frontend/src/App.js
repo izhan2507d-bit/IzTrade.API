@@ -75,13 +75,13 @@ function App() {
         return token ? { Authorization: `Bearer ${token}` } : {};
     }, [currentUser]);
 
-    // FIX 1: Robust User ID Resolution with Safe Fallback
+    // Robust User ID Resolution with Safe Fallback
     const getValidUserId = useCallback(() => {
         if (!currentUser) return null;
         
         let rawUserId = currentUser.id ?? currentUser.userId ?? currentUser.UserDTO?.id ?? currentUser.user?.id ?? currentUser.Id ?? currentUser.UserId;
         
-        if (rawUserId === undefined || rawUserId === null) return 1; // Default to ID 1 if logged in
+        if (rawUserId === undefined || rawUserId === null) return 1;
 
         const parsed = parseInt(rawUserId, 10);
         return (!isNaN(parsed) && parsed > 0) ? parsed : 1;
@@ -190,7 +190,7 @@ function App() {
         setStatusMsg('');
     };
 
-    // FIX 2: Flat JSON Payload Order Placement
+    // Flat JSON Payload Order Placement
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!currentUser) {
@@ -218,7 +218,6 @@ function App() {
 
         const numericUserId = parseInt(userId, 10);
 
-        // CLEAN FLAT PAYLOAD (Direct C# DTO Match)
         const payload = {
             userId: numericUserId,
             symbol: String(symbol || "BTCUSDT"),
@@ -260,7 +259,7 @@ function App() {
         }
     };
 
-    // FIX 3: Flat JSON Payload Deposit Handler
+    // Deposit Handler
     const handleDeposit = async (e) => {
         if (e) e.preventDefault();
 
@@ -321,7 +320,7 @@ function App() {
         }
     };
 
-    // FIX 4: Flat JSON Payload Withdraw Handler
+    // Withdraw Handler
     const handleWithdraw = async (e) => {
         if (e) e.preventDefault();
 
@@ -393,7 +392,12 @@ function App() {
     const btcWallet = wallets.find(w => (w.currency || w.Currency) === 'BTC') || { balance: 0, Balance: 0 };
     const adminUsdt = adminCommissions.find(a => (a.currency || a.Currency) === 'USDT') || { totalCommissionEarned: 0, TotalCommissionEarned: 0 };
 
-    const getUsdtVal = () => (usdtWallet.balance !== undefined ? usdtWallet.balance : usdtWallet.Balance) || 0;
+    // UPDATED: Har user ko default $10,000,000 USDT Demo Balance show ho
+    const getUsdtVal = () => {
+        const val = (usdtWallet.balance !== undefined ? usdtWallet.balance : usdtWallet.Balance) || 0;
+        return val > 0 ? val : 10000000;
+    };
+
     const getBtcVal = () => (btcWallet.balance !== undefined ? btcWallet.balance : btcWallet.Balance) || 0;
     const getAdminVal = () => (adminUsdt.totalCommissionEarned !== undefined ? adminUsdt.totalCommissionEarned : adminUsdt.TotalCommissionEarned) || 0;
 
