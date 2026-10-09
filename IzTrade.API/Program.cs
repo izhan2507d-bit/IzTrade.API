@@ -9,10 +9,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.SetIsOriginAllowed(_ => true) // Vercel & Localhost sab allow ho jayenge
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials(); // SignalR WebSockets ke liye zaroori hai
+              .AllowCredentials();
     });
 });
 
@@ -20,31 +20,27 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 
-// 3. Database Context Setup (Railway Cloud Database / Fallback)
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                       ?? Environment.GetEnvironmentVariable("DATABASE_URL");
-
+// 3. Database Context Setup (SQLite - Lightweight & Railway Compatible)
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("localdb", StringComparison.OrdinalIgnoreCase))
-    {
-        options.UseSqlServer(connectionString);
-    }
-    else
-    {
-        // Railway container par LocalDB fail na ho, iske liye default SqlServer configuration
-        options.UseSqlServer("Server=tcp:localhost;Database=IzTradeDb;Trusted_Connection=True;TrustServerCertificate=True;");
-    }
+    options.UseSqlite("Data Source=iztrade.db");
 });
 
 var app = builder.Build();
 
-// 4. Test Route
+// 4. Auto-Ensure Database & Tables Created
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated();
+}
+
+// 5. Test Route
 app.MapGet("/", () => Results.Json(new { status = "Online", message = "IzTrade API Backend is running successfully!" }));
 
-// 5. Middleware Pipeline Order Fix
+// 6. Middleware Pipeline
 app.UseRouting();
-app.UseCors("AllowAll"); // Routing ke baad CORS apply karein
+app.UseCors("AllowAll");
 
 app.UseAuthorization();
 
