@@ -22,32 +22,32 @@ namespace IzTrade.API.Controllers
         }
 
         [HttpPost("place")]
-        public async Task<IActionResult> PlaceOrder([FromBody] CreateOrderDto dto)
+        public async Task<IActionResult> PlaceOrder([FromBody] CreateOrderDto request)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                if (dto == null)
+                if (request == null)
                 {
                     return BadRequest("Invalid request payload.");
                 }
 
-                // Fallback to ID 1 if invalid
-                int userId = dto.UserId > 0 ? dto.UserId : 1;
+                // Robust UserId Fallback (0 ya invalid hone par auto User 1 set karein)
+                int userId = request.UserId > 0 ? request.UserId : 1;
 
-                if (dto.Quantity <= 0 || dto.Price <= 0)
+                if (request.Quantity <= 0 || request.Price <= 0)
                 {
                     return BadRequest("Invalid price or quantity.");
                 }
 
-                string orderType = (dto.OrderType ?? "BUY").ToUpper();
-                string symbol = string.IsNullOrEmpty(dto.Symbol) ? "BTCUSDT" : dto.Symbol.ToUpper();
+                string orderType = (request.OrderType ?? "BUY").ToUpper();
+                string symbol = string.IsNullOrEmpty(request.Symbol) ? "BTCUSDT" : request.Symbol.ToUpper();
 
                 string baseCurrency = symbol.Replace("USDT", "");
                 string quoteCurrency = "USDT";
 
                 decimal feePercentage = 0.002m; // 0.2% Fee
-                decimal tradeAmount = dto.Price * dto.Quantity;
+                decimal tradeAmount = request.Price * request.Quantity;
 
                 if (orderType == "BUY")
                 {
@@ -69,7 +69,6 @@ namespace IzTrade.API.Controllers
                     }
                     else if (quoteWallet.Balance < (tradeAmount + (tradeAmount * feePercentage)))
                     {
-                        // Ensure demo practice has sufficient balance
                         quoteWallet.Balance = 10000000.0m;
                         await _context.SaveChangesAsync();
                     }
@@ -98,8 +97,8 @@ namespace IzTrade.API.Controllers
                         await _context.SaveChangesAsync();
                     }
 
-                    baseWallet.Balance -= dto.Quantity;
-                    baseWallet.LockedBalance += dto.Quantity;
+                    baseWallet.Balance -= request.Quantity;
+                    baseWallet.LockedBalance += request.Quantity;
                 }
 
                 var newOrder = new Order
@@ -107,8 +106,8 @@ namespace IzTrade.API.Controllers
                     UserId = userId,
                     Symbol = symbol,
                     OrderType = orderType,
-                    Price = dto.Price,
-                    Quantity = dto.Quantity,
+                    Price = request.Price,
+                    Quantity = request.Quantity,
                     Status = "PENDING",
                     CreatedAt = DateTime.UtcNow
                 };
