@@ -77,7 +77,7 @@ function App() {
 
     // Robust User ID Resolution with Safe Fallback
     const getValidUserId = useCallback(() => {
-        if (!currentUser) return null;
+        if (!currentUser) return 1; // Default fallback ID for guests
         
         let rawUserId = currentUser.id ?? currentUser.userId ?? currentUser.UserDTO?.id ?? currentUser.user?.id ?? currentUser.Id ?? currentUser.UserId;
         
@@ -107,8 +107,6 @@ function App() {
 
     const fetchUserData = useCallback(async () => {
         const userId = getValidUserId();
-        if (!userId) return;
-
         try {
             const headers = getAuthHeaders();
             const walletRes = await axios.get(`${API_BASE_URL}/api/Wallet/user/${userId}`, { headers });
@@ -141,7 +139,7 @@ function App() {
 
     useEffect(() => {
         fetchOrderBook();
-        if (currentUser) fetchUserData();
+        fetchUserData();
     }, [currentUser, fetchOrderBook, fetchUserData]);
 
     // SignalR Setup
@@ -166,7 +164,7 @@ function App() {
                 connection.on("ReceiveTrade", (tradeSymbol) => {
                     if (tradeSymbol === symbol) {
                         fetchOrderBook();
-                        if (currentUser) fetchUserData();
+                        fetchUserData();
                     }
                 });
             })
@@ -180,7 +178,7 @@ function App() {
                 connection.stop();
             }
         };
-    }, [symbol, fetchOrderBook, fetchUserData, currentUser]);
+    }, [symbol, fetchOrderBook, fetchUserData]);
 
     const handleLogout = () => {
         localStorage.removeItem('user');
@@ -190,22 +188,11 @@ function App() {
         setStatusMsg('');
     };
 
-    // Flat JSON Payload Order Placement
+    // Order Placement with Live Balance Extraction
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
-        if (!currentUser) {
-            setShowAuthModal(true);
-            return;
-        }
 
         const userId = getValidUserId();
-        if (!userId) {
-            alert("Invalid User Session. Please logout and login again.");
-            handleLogout();
-            setShowAuthModal(true);
-            return;
-        }
-
         const parsedPrice = parseFloat(price);
         const parsedQuantity = parseFloat(quantity);
 
@@ -216,10 +203,8 @@ function App() {
 
         setStatusMsg('Processing Order...');
 
-        const numericUserId = parseInt(userId, 10);
-
         const payload = {
-            userId: numericUserId,
+            userId: userId,
             symbol: String(symbol || "BTCUSDT"),
             price: parsedPrice,
             quantity: parsedQuantity,
@@ -236,7 +221,14 @@ function App() {
             });
 
             setStatusMsg(typeof response.data === 'string' ? response.data : (response.data?.message || 'Order placed successfully!'));
-            fetchUserData();
+
+            // Live Balance Sync directly from Place Order API
+            if (response.data && response.data.wallets) {
+                setWallets(response.data.wallets);
+            } else {
+                fetchUserData();
+            }
+
             fetchOrderBook();
         } catch (error) {
             console.error("Order Place Error:", error);
@@ -256,6 +248,7 @@ function App() {
             }
 
             setStatusMsg(`Error: ${errorMsg}`);
+            fetchUserData(); // Refresh balance if failed
         }
     };
 
@@ -264,23 +257,14 @@ function App() {
         if (e) e.preventDefault();
 
         const userId = getValidUserId();
-        if (!userId) {
-            alert("Invalid User Session. Please logout and login again.");
-            handleLogout();
-            setShowAuthModal(true);
-            return;
-        }
-
         const parsedAmount = parseFloat(depositAmount);
         if (isNaN(parsedAmount) || parsedAmount <= 0) {
             alert("Deposit amount zero se bari honi chahiye.");
             return;
         }
 
-        const numericUserId = parseInt(userId, 10);
-
         const payload = {
-            userId: numericUserId,
+            userId: userId,
             currency: "USDT",
             amount: parsedAmount
         };
@@ -302,18 +286,10 @@ function App() {
             const errData = err.response?.data;
             let msg = "Deposit failed";
 
-            if (err.response?.status === 401) {
-                msg = "Invalid User Session. Please logout and login again.";
-            } else if (typeof errData === 'string') {
+            if (typeof errData === 'string') {
                 msg = errData;
-            } else if (errData?.errors) {
-                msg = Object.entries(errData.errors)
-                    .map(([field, errs]) => `${field}: ${Array.isArray(errs) ? errs.join(', ') : errs}`)
-                    .join('\n');
             } else if (errData?.message) {
                 msg = errData.message;
-            } else if (errData?.title) {
-                msg = errData.title;
             }
 
             alert(msg);
@@ -325,23 +301,14 @@ function App() {
         if (e) e.preventDefault();
 
         const userId = getValidUserId();
-        if (!userId) {
-            alert("Invalid User Session. Please logout and login again.");
-            handleLogout();
-            setShowAuthModal(true);
-            return;
-        }
-
         const parsedAmount = parseFloat(withdrawAmount);
         if (isNaN(parsedAmount) || parsedAmount <= 0) {
             alert("Withdraw amount zero se bari honi chahiye.");
             return;
         }
 
-        const numericUserId = parseInt(userId, 10);
-
         const payload = {
-            userId: numericUserId,
+            userId: userId,
             currency: 'USDT',
             amount: parsedAmount,
             method: withdrawMethod,
@@ -367,39 +334,26 @@ function App() {
             await fetchUserData();
         } catch (err) {
             console.error("Withdraw Error:", err);
-            const errData = err.response?.data;
-            let msg = 'Withdrawal failed';
-
-            if (err.response?.status === 401) {
-                msg = "Invalid User Session. Please logout and login again.";
-            } else if (typeof errData === 'string') {
-                msg = errData;
-            } else if (errData?.errors) {
-                msg = Object.entries(errData.errors)
-                    .map(([field, errs]) => `${field}: ${Array.isArray(errs) ? errs.join(', ') : errs}`)
-                    .join('\n');
-            } else if (errData?.message) {
-                msg = errData.message;
-            } else if (errData?.title) {
-                msg = errData.title;
-            }
-
-            alert(msg);
+            alert("Withdrawal failed");
         }
     };
 
-    const usdtWallet = wallets.find(w => (w.currency || w.Currency) === 'USDT') || { balance: 0, Balance: 0 };
-    const btcWallet = wallets.find(w => (w.currency || w.Currency) === 'BTC') || { balance: 0, Balance: 0 };
-    const adminUsdt = adminCommissions.find(a => (a.currency || a.Currency) === 'USDT') || { totalCommissionEarned: 0, TotalCommissionEarned: 0 };
+    // Accurate Wallet Fetching without Static Hardcoding Overrides
+    const usdtWallet = wallets.find(w => (w.currency || w.Currency)?.toUpperCase() === 'USDT') || { balance: 0, Balance: 0 };
+    const btcWallet = wallets.find(w => (w.currency || w.Currency)?.toUpperCase() === 'BTC') || { balance: 0, Balance: 0 };
+    const adminUsdt = adminCommissions.find(a => (a.currency || a.Currency)?.toUpperCase() === 'USDT') || { totalCommissionEarned: 0, TotalCommissionEarned: 0 };
 
-    // UPDATED: Har user ko default $10,000,000 USDT Demo Balance show ho
     const getUsdtVal = () => {
-        const val = (usdtWallet.balance !== undefined ? usdtWallet.balance : usdtWallet.Balance) || 0;
-        return val > 0 ? val : 10000000;
+        return (usdtWallet.balance !== undefined ? usdtWallet.balance : usdtWallet.Balance) ?? 0;
     };
 
-    const getBtcVal = () => (btcWallet.balance !== undefined ? btcWallet.balance : btcWallet.Balance) || 0;
-    const getAdminVal = () => (adminUsdt.totalCommissionEarned !== undefined ? adminUsdt.totalCommissionEarned : adminUsdt.TotalCommissionEarned) || 0;
+    const getBtcVal = () => {
+        return (btcWallet.balance !== undefined ? btcWallet.balance : btcWallet.Balance) ?? 0;
+    };
+
+    const getAdminVal = () => {
+        return (adminUsdt.totalCommissionEarned !== undefined ? adminUsdt.totalCommissionEarned : adminUsdt.TotalCommissionEarned) ?? 0;
+    };
 
     const handlePercentageClick = (percent) => {
         if (orderType === 'BUY') {
@@ -454,13 +408,11 @@ function App() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <button onClick={() => setActiveModal('DEPOSIT')} style={{ padding: '6px 10px', backgroundColor: '#0ecb81', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}>Deposit</button>
+                    <button onClick={() => setActiveModal('WITHDRAW')} style={{ padding: '6px 10px', backgroundColor: '#f6465d', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}>Withdraw</button>
+                    {!isMobile && <button onClick={() => setActiveModal('ADMIN')} style={{ padding: '6px 10px', backgroundColor: '#f0b90b', border: 'none', borderRadius: '4px', color: '#000', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}>Profit</button>}
                     {currentUser ? (
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <button onClick={() => setActiveModal('DEPOSIT')} style={{ padding: '6px 10px', backgroundColor: '#0ecb81', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}>Deposit</button>
-                            <button onClick={() => setActiveModal('WITHDRAW')} style={{ padding: '6px 10px', backgroundColor: '#f6465d', border: 'none', borderRadius: '4px', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}>Withdraw</button>
-                            {!isMobile && <button onClick={() => setActiveModal('ADMIN')} style={{ padding: '6px 10px', backgroundColor: '#f0b90b', border: 'none', borderRadius: '4px', color: '#000', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}>Profit</button>}
-                            <button onClick={handleLogout} style={{ padding: '6px 10px', backgroundColor: '#2b313a', border: 'none', borderRadius: '4px', color: '#848e9c', cursor: 'pointer', fontSize: '11px' }}>Logout</button>
-                        </div>
+                        <button onClick={handleLogout} style={{ padding: '6px 10px', backgroundColor: '#2b313a', border: 'none', borderRadius: '4px', color: '#848e9c', cursor: 'pointer', fontSize: '11px' }}>Logout</button>
                     ) : (
                         <button onClick={() => setShowAuthModal(true)} style={{ padding: '6px 12px', backgroundColor: '#f0b90b', color: '#000', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '11px' }}>
                             Log In
@@ -545,7 +497,7 @@ function App() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: '#848e9c', fontSize: '12px' }}>
                             <span>Avail Balance:</span>
                             <span style={{ color: '#eaecef', fontWeight: 'bold' }}>
-                                {orderType === 'BUY' ? `${Number(getUsdtVal()).toFixed(2)} USDT` : `${Number(getBtcVal()).toFixed(4)} BTC`}
+                                {orderType === 'BUY' ? `${Number(getUsdtVal()).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT` : `${Number(getBtcVal()).toFixed(4)} BTC`}
                             </span>
                         </div>
 
