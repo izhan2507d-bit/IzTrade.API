@@ -18,11 +18,12 @@ namespace IzTrade.API.Controllers
             _context = context;
         }
 
-        // 1. Fetch Wallets (Auto-creates USDT and BTC wallets if missing)
+        // 1. Fetch Wallets (Accepts 'long' to prevent 400 Bad Request Overflow)
         [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetUserWallets(int userId)
+        public async Task<IActionResult> GetUserWallets(long userId)
         {
-            int validUserId = userId > 0 ? userId : 1;
+            // Int64 ko safe Int32 range mein fallback karein
+            int validUserId = (userId > 0 && userId <= int.MaxValue) ? (int)userId : 1;
 
             // Step 1: Check & Ensure User Exists in DB (Safety against FK error)
             var userExists = await _context.Users.AnyAsync(u => u.Id == validUserId);
@@ -55,7 +56,7 @@ namespace IzTrade.API.Controllers
                 _context.Wallets.Add(usdtWallet);
             }
 
-            // Step 3: Ensure BTC Wallet Exists (Fixes 0.0000 BTC issue)
+            // Step 3: Ensure BTC Wallet Exists
             var btcWallet = await _context.Wallets
                 .FirstOrDefaultAsync(w => w.UserId == validUserId && w.Currency.ToUpper() == "BTC");
 
@@ -65,7 +66,7 @@ namespace IzTrade.API.Controllers
                 {
                     UserId = validUserId,
                     Currency = "BTC",
-                    Balance = 10.0m, // Default 10 BTC given for trading/selling
+                    Balance = 10.0m, // Default 10 BTC
                     LockedBalance = 0.0m
                 };
                 _context.Wallets.Add(btcWallet);
@@ -83,7 +84,7 @@ namespace IzTrade.API.Controllers
                     w.Currency,
                     w.Balance,
                     w.LockedBalance,
-                    AvailableBalance = w.Balance // Front-end directly picks this
+                    AvailableBalance = w.Balance
                 })
                 .ToListAsync();
 
@@ -142,14 +143,23 @@ namespace IzTrade.API.Controllers
 
         private static int ParseUserId(object? rawUserId)
         {
-            if (rawUserId == null) return 0;
+            if (rawUserId == null) return 1;
             if (rawUserId is JsonElement element)
             {
-                if (element.ValueKind == JsonValueKind.Number && element.TryGetInt32(out int val)) return val;
-                if (element.ValueKind == JsonValueKind.String && int.TryParse(element.GetString(), out int strVal)) return strVal;
+                if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long val))
+                {
+                    return (val > 0 && val <= int.MaxValue) ? (int)val : 1;
+                }
+                if (element.ValueKind == JsonValueKind.String && long.TryParse(element.GetString(), out long strVal))
+                {
+                    return (strVal > 0 && strVal <= int.MaxValue) ? (int)strVal : 1;
+                }
             }
-            if (int.TryParse(rawUserId.ToString(), out int parsedInt)) return parsedInt;
-            return 0;
+            if (long.TryParse(rawUserId.ToString(), out long parsedLong))
+            {
+                return (parsedLong > 0 && parsedLong <= int.MaxValue) ? (int)parsedLong : 1;
+            }
+            return 1;
         }
 
         private async Task AddAdminCommission(string currency, decimal amount)
