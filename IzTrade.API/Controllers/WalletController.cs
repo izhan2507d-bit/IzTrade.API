@@ -18,27 +18,87 @@ namespace IzTrade.API.Controllers
             _context = context;
         }
 
-        // 1. Fetch Wallets
+        // 1. Fetch Wallets (Auto-creates USDT and BTC wallets if missing)
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetUserWallets(int userId)
         {
+            int validUserId = userId > 0 ? userId : 1;
+
+            // Step 1: Check & Ensure User Exists in DB (Safety against FK error)
+            var userExists = await _context.Users.AnyAsync(u => u.Id == validUserId);
+            if (!userExists)
+            {
+                var fallbackUser = new User
+                {
+                    Email = $"user_{validUserId}@iztrade.com",
+                    PasswordHash = "GUEST_ACCOUNT",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Users.Add(fallbackUser);
+                await _context.SaveChangesAsync();
+                validUserId = fallbackUser.Id;
+            }
+
+            // Step 2: Ensure USDT Wallet Exists
+            var usdtWallet = await _context.Wallets
+                .FirstOrDefaultAsync(w => w.UserId == validUserId && w.Currency.ToUpper() == "USDT");
+
+            if (usdtWallet == null)
+            {
+                usdtWallet = new Wallet
+                {
+                    UserId = validUserId,
+                    Currency = "USDT",
+                    Balance = 100000000.0m, // Starting USDT
+                    LockedBalance = 0.0m
+                };
+                _context.Wallets.Add(usdtWallet);
+            }
+
+            // Step 3: Ensure BTC Wallet Exists (Fixes 0.0000 BTC issue)
+            var btcWallet = await _context.Wallets
+                .FirstOrDefaultAsync(w => w.UserId == validUserId && w.Currency.ToUpper() == "BTC");
+
+            if (btcWallet == null)
+            {
+                btcWallet = new Wallet
+                {
+                    UserId = validUserId,
+                    Currency = "BTC",
+                    Balance = 10.0m, // Default 10 BTC given for trading/selling
+                    LockedBalance = 0.0m
+                };
+                _context.Wallets.Add(btcWallet);
+            }
+
+            await _context.SaveChangesAsync();
+
+            // Step 4: Return Complete List of Wallets
             var wallets = await _context.Wallets
-                .Where(w => w.UserId == userId)
+                .Where(w => w.UserId == validUserId)
+                .Select(w => new
+                {
+                    w.Id,
+                    w.UserId,
+                    w.Currency,
+                    w.Balance,
+                    w.LockedBalance,
+                    AvailableBalance = w.Balance // Front-end directly picks this
+                })
                 .ToListAsync();
 
             return Ok(wallets);
         }
 
-        // 2. Guaranteed Safe Deposit Endpoint
+        // 2. Deposit Endpoint
         [HttpPost("deposit")]
         public async Task<IActionResult> Deposit([FromBody] FlexibleDepositDto dto)
         {
-            // Extract integer UserId safely from any input type
             int userId = ParseUserId(dto.UserId);
 
             if (userId <= 0)
             {
-                return BadRequest(new { message = "Invalid User Session. Please logout and login again." });
+                return BadRequest(new { message = "Invalid User Session." });
             }
 
             if (dto.Amount <= 0)
@@ -47,7 +107,7 @@ namespace IzTrade.API.Controllers
             }
 
             string currency = string.IsNullOrWhiteSpace(dto.Currency) ? "USDT" : dto.Currency.ToUpper();
-            decimal feeAmount = dto.Amount * 0.01m; // 1% Fee
+            decimal feeAmount = dto.Amount * 0.01m;
             decimal netAmount = dto.Amount - feeAmount;
 
             var wallet = await _context.Wallets
@@ -59,7 +119,8 @@ namespace IzTrade.API.Controllers
                 {
                     UserId = userId,
                     Currency = currency,
-                    Balance = netAmount
+                    Balance = netAmount,
+                    LockedBalance = 0.0m
                 };
                 _context.Wallets.Add(wallet);
             }
@@ -79,7 +140,6 @@ namespace IzTrade.API.Controllers
             });
         }
 
-        // Helper Method for Safe Parsing
         private static int ParseUserId(object? rawUserId)
         {
             if (rawUserId == null) return 0;
@@ -106,7 +166,6 @@ namespace IzTrade.API.Controllers
         }
     }
 
-    // DTO using JsonElement to accept ANY JSON type without throwing 400 JsonException
     public class FlexibleDepositDto
     {
         [JsonPropertyName("userId")]
