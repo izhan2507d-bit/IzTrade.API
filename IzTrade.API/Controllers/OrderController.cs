@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
-namespace IzTrade.API.Controllers
+namespace IzTrade.API.Controllers 
 {
     [ApiController]
     [Route("api/[controller]")]
