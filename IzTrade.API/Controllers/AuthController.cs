@@ -44,7 +44,7 @@ namespace IzTrade.API.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // 2. Demo Practice Trading Ke Liye $100,000,000 USDT Balance Set Karein
+            // 2. Demo Practice Trading Ke Liye Initial Wallets Set Karein
             var usdtWallet = new Wallet
             {
                 UserId = user.Id,
@@ -57,7 +57,7 @@ namespace IzTrade.API.Controllers
             {
                 UserId = user.Id,
                 Currency = "BTC",
-                Balance = 0.0m,
+                Balance = 10.0m, // 10 BTC for Selling Demo
                 LockedBalance = 0.0m
             };
 
