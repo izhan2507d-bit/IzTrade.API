@@ -77,7 +77,7 @@ function App() {
 
     // Robust User ID Resolution with Safe Fallback
     const getValidUserId = useCallback(() => {
-        if (!currentUser) return 1; // Default fallback ID for guests
+        if (!currentUser) return 1;
         
         let rawUserId = currentUser.id ?? currentUser.userId ?? currentUser.UserDTO?.id ?? currentUser.user?.id ?? currentUser.Id ?? currentUser.UserId;
         
@@ -188,7 +188,7 @@ function App() {
         setStatusMsg('');
     };
 
-    // Order Placement with Live Balance Extraction
+    // FIXED: Live Instant Refresh Order Placement
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
 
@@ -222,14 +222,17 @@ function App() {
 
             setStatusMsg(typeof response.data === 'string' ? response.data : (response.data?.message || 'Order placed successfully!'));
 
-            // Live Balance Sync directly from Place Order API
+            // Live Wallet Sync from API
             if (response.data && response.data.wallets) {
                 setWallets(response.data.wallets);
-            } else {
-                fetchUserData();
             }
 
-            fetchOrderBook();
+            // FORCE IMMEDIATE RE-FETCH OF ORDER BOOK & WALLETS (Fixes Freezing UI)
+            setTimeout(() => {
+                fetchOrderBook();
+                fetchUserData();
+            }, 300);
+
         } catch (error) {
             console.error("Order Place Error:", error);
             const errData = error.response?.data;
@@ -248,7 +251,8 @@ function App() {
             }
 
             setStatusMsg(`Error: ${errorMsg}`);
-            fetchUserData(); // Refresh balance if failed
+            fetchUserData();
+            fetchOrderBook();
         }
     };
 
@@ -338,22 +342,14 @@ function App() {
         }
     };
 
-    // Accurate Wallet Fetching without Static Hardcoding Overrides
+    // Wallet Values
     const usdtWallet = wallets.find(w => (w.currency || w.Currency)?.toUpperCase() === 'USDT') || { balance: 0, Balance: 0 };
     const btcWallet = wallets.find(w => (w.currency || w.Currency)?.toUpperCase() === 'BTC') || { balance: 0, Balance: 0 };
     const adminUsdt = adminCommissions.find(a => (a.currency || a.Currency)?.toUpperCase() === 'USDT') || { totalCommissionEarned: 0, TotalCommissionEarned: 0 };
 
-    const getUsdtVal = () => {
-        return (usdtWallet.balance !== undefined ? usdtWallet.balance : usdtWallet.Balance) ?? 0;
-    };
-
-    const getBtcVal = () => {
-        return (btcWallet.balance !== undefined ? btcWallet.balance : btcWallet.Balance) ?? 0;
-    };
-
-    const getAdminVal = () => {
-        return (adminUsdt.totalCommissionEarned !== undefined ? adminUsdt.totalCommissionEarned : adminUsdt.TotalCommissionEarned) ?? 0;
-    };
+    const getUsdtVal = () => (usdtWallet.balance !== undefined ? usdtWallet.balance : usdtWallet.Balance) ?? 0;
+    const getBtcVal = () => (btcWallet.balance !== undefined ? btcWallet.balance : btcWallet.Balance) ?? 0;
+    const getAdminVal = () => (adminUsdt.totalCommissionEarned !== undefined ? adminUsdt.totalCommissionEarned : adminUsdt.TotalCommissionEarned) ?? 0;
 
     const handlePercentageClick = (percent) => {
         if (orderType === 'BUY') {
