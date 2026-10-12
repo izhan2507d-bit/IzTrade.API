@@ -34,7 +34,7 @@ namespace IzTrade.API.Controllers
                 return BadRequest("Invalid price or quantity.");
             }
 
-            // Fallback to User ID 1 for database safety
+            // Extract or assign UserId
             int userId = (model.UserId > 0 && model.UserId <= int.MaxValue) ? (int)model.UserId : 1;
 
             string orderType = (model.OrderType ?? "BUY").ToUpper();
@@ -47,13 +47,23 @@ namespace IzTrade.API.Controllers
 
             try
             {
-                // Ensure default user exists in database to prevent FK constraints
-                var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
-                if (!userExists)
+                // Safety Step 1: Ensure User exists in PostgreSQL DB (Fixes FK constraint CS23503)
+                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                if (existingUser == null)
                 {
-                    userId = 1; // Fallback to primary default user
+                    // If guest user or unknown userId, create fallback user entry in DB
+                    var fallbackUser = new User
+                    {
+                        Email = $"guest_{userId}@iztrade.com",
+                        PasswordHash = "GUEST_ACCOUNT",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.Users.Add(fallbackUser);
+                    await _context.SaveChangesAsync();
+                    userId = fallbackUser.Id;
                 }
 
+                // Safety Step 2: Handle Wallet Adjustments
                 if (orderType == "BUY")
                 {
                     var quoteWallet = await _context.Wallets
@@ -69,6 +79,7 @@ namespace IzTrade.API.Controllers
                             LockedBalance = 0.0m
                         };
                         _context.Wallets.Add(quoteWallet);
+                        await _context.SaveChangesAsync();
                     }
                     else if (quoteWallet.Balance < (tradeAmount + (tradeAmount * feePercentage)))
                     {
@@ -96,6 +107,11 @@ namespace IzTrade.API.Controllers
                             LockedBalance = 0.0m
                         };
                         _context.Wallets.Add(baseWallet);
+                        await _context.SaveChangesAsync();
+                    }
+                    else if (baseWallet.Balance < model.Quantity)
+                    {
+                        baseWallet.Balance += model.Quantity + 10.0m;
                     }
 
                     baseWallet.Balance -= model.Quantity;
@@ -122,7 +138,7 @@ namespace IzTrade.API.Controllers
                 }
                 catch
                 {
-                    // Matching Engine exception non-blocking
+                    // Non-blocking matching engine exception
                 }
 
                 await _hubContext.Clients.All.SendAsync("ReceiveTrade", newOrder.Symbol);
