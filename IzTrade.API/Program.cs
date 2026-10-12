@@ -34,13 +34,22 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 var app = builder.Build();
 
-// 4. Auto-Create PostgreSQL Tables on Startup
+// 4. Auto-Create PostgreSQL Tables & Clean Old Test Orders
 using (var scope = app.Services.CreateScope())
 {
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         db.Database.EnsureCreated();
+
+        // Database Cleanup: Remove unrealistic test orders (> $200,000)
+        var badOrders = db.Orders.Where(o => o.Price > 200000).ToList();
+        if (badOrders.Any())
+        {
+            db.Orders.RemoveRange(badOrders);
+            db.SaveChanges();
+            Console.WriteLine("Old unrealistic test orders cleaned up successfully.");
+        }
     }
     catch (Exception ex)
     {
