@@ -27,6 +27,11 @@ const Logo = () => (
 );
 
 function App() {
+    // Dynamic Browser Tab Title Update
+    useEffect(() => {
+        document.title = "IZTRADE - Pro Terminal";
+    }, []);
+
     // Auth States
     const [currentUser, setCurrentUser] = useState(() => {
         try {
